@@ -1,0 +1,90 @@
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  animation: cardIn 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
+  transition: box-shadow 0.2s;
+  position: relative;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.cardTitle {
+  font-family: var(--font-head);
+  font-style: italic;
+  font-size: 17px;
+  font-weight: 500;
+  flex: 1;
+  line-height: 1.35;
+}
+
+.cardActions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.iconBtn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.iconBtn:hover {
+  background: var(--pink-light);
+  color: var(--text);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.chip {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--blue-light);
+  color: var(--text);
+}
+
+.chip.pink { background: var(--pink-light); }
+.chip.green { background: #d4f0e0; }
+.chip.muted { background: rgba(84,75,94,0.08); }
+
+.cardNote {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cardMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 10px;
+  opacity: 0.7;
+}

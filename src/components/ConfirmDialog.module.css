@@ -1,0 +1,61 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(84, 75, 94, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 16px;
+}
+
+.box {
+  background: #fff;
+  border-radius: 20px;
+  padding: 28px 24px 20px;
+  max-width: 320px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(239, 169, 196, 0.25);
+}
+
+.msg {
+  font-family: var(--font-body);
+  color: var(--text);
+  font-size: 15px;
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.cancel, .confirm {
+  padding: 8px 18px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+
+.cancel {
+  background: var(--blue-light);
+  color: var(--text);
+}
+
+.confirm {
+  background: var(--pink);
+  color: #fff;
+}
+
+.cancel:hover, .confirm:hover { opacity: 0.82; }
+
+.cancel:focus-visible, .confirm:focus-visible {
+  outline: 2.5px solid var(--pink);
+  outline-offset: 2px;
+}
