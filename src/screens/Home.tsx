@@ -8,6 +8,7 @@ import {
 import { ActivityPicker } from '../components/ActivityPicker'
 import { EditBlock } from '../components/EditBlock'
 import { TimelineEditor } from '../components/TimelineEditor'
+import { FocusDetail } from '../components/FocusDetail'
 
 type TLItem =
   | { type: 'block'; start: number; end: number; block: ActivityBlock }
@@ -76,6 +77,8 @@ export function Home() {
   const [picking, setPicking] = useState(false)
   const [editBlock, setEditBlock] = useState<ActivityBlock | null>(null)
   const [editDay, setEditDay] = useState(false)
+  const [focusDetail, setFocusDetail] = useState<FocusKey | null>(null)
+  const [showAllTl, setShowAllTl] = useState(false)
   // заполнение конкретного пропуска
   const [fillGap, setFillGap] = useState<{ start: Date; end: Date; toNow: boolean } | null>(null)
 
@@ -160,14 +163,14 @@ export function Home() {
           const done = hoursByFocus[f.key] ?? 0
           const pct  = f.goalH > 0 ? Math.min(100, Math.round((done / f.goalH) * 100)) : 0
           return (
-            <div key={f.key} className={s.ringCard}>
+            <button key={f.key} className={s.ringCard} onClick={() => setFocusDetail(f.key)}>
               <div className={s.ringWrap}>
                 <Ring done={done} goal={f.goalH} color={f.color} />
                 <div className={s.ringVal}>{pct}%</div>
               </div>
               <div className={s.ringName}>{f.name}</div>
               <div className={s.ringGoal}>{done.toFixed(1)}/{f.goalH}ч</div>
-            </div>
+            </button>
           )
         })}
       </div>
@@ -180,19 +183,18 @@ export function Home() {
           )}
         </div>
         <div className={s.balBar}>
-          <div className={s.balFocus} style={{ flex: Math.max(0.001, focusH) }} />
-          <div className={s.balOther} style={{ flex: Math.max(0.001, nonFocusH) }} />
+          {(['biz', 'sport', 'blog', 'other'] as const).map((k) => (
+            <div key={k} style={{ flex: Math.max(0.0001, hoursByFocus[k]), background: FOCUS_COLORS[k] }} />
+          ))}
           {trackedH === 0 && <div className={s.balEmpty} />}
         </div>
         <div className={s.balLegend}>
-          <div className={s.balItem}>
-            <span className={s.balDotFocus} />
-            в фокусе <b>{focusH.toFixed(1)}ч</b> · {focusShare}%
-          </div>
-          <div className={s.balItem}>
-            <span className={s.balDotOther} />
-            вне фокуса <b>{nonFocusH.toFixed(1)}ч</b>
-          </div>
+          {(['biz', 'sport', 'blog', 'other'] as const).map((k) => (
+            <div key={k} className={s.balItem}>
+              <span className={s.balDot} style={{ background: FOCUS_COLORS[k] }} />
+              {FOCUSES[k].name} <b>{hoursByFocus[k].toFixed(1)}ч</b>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -239,11 +241,16 @@ export function Home() {
             ))}
           </div>
           <div className={s.tlList}>
-            {items.map((it, i) => {
+            {items.length > 5 && !showAllTl && (
+              <button className={s.tlMore} onClick={() => setShowAllTl(true)}>
+                показать все ({items.length - 5} ещё) ⌄
+              </button>
+            )}
+            {(showAllTl ? items : items.slice(-5)).map((it) => {
               if (it.type === 'gap') {
                 return (
                   <button
-                    key={i}
+                    key={`gap-${it.start}`}
                     className={s.tlGap}
                     onClick={() => setFillGap({ start: new Date(it.start), end: new Date(it.end), toNow: it.toNow })}
                   >
@@ -256,7 +263,7 @@ export function Home() {
               const b = it.block
               const act = ACTIVITIES.find((a) => a.id === b.activity_id)
               return (
-                <button key={i} className={s.tlRow} onClick={() => setEditBlock(b)}>
+                <button key={b.id} className={s.tlRow} onClick={() => setEditBlock(b)}>
                   <div className={s.tlDot} style={{ background: FOCUS_COLORS[b.focus] }} />
                   <div className={s.tlAct}>{act?.label ?? b.activity_id}</div>
                   <div className={s.tlDur}>
@@ -266,6 +273,9 @@ export function Home() {
                 </button>
               )
             })}
+            {showAllTl && items.length > 5 && (
+              <button className={s.tlMore} onClick={() => setShowAllTl(false)}>свернуть ⌃</button>
+            )}
           </div>
         </div>
       )}
@@ -309,6 +319,14 @@ export function Home() {
           onSaved={() => { setEditDay(false); load() }}
           onClose={() => setEditDay(false)}
           onRequestAdd={() => { setEditDay(false); setPicking(true) }}
+        />
+      )}
+
+      {focusDetail && (
+        <FocusDetail
+          focus={focusDetail}
+          blocks={blocks}
+          onClose={() => setFocusDetail(null)}
         />
       )}
     </div>

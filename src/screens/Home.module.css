@@ -91,14 +91,11 @@
   background: rgba(0, 0, 0, 0.05);
   margin-bottom: 12px;
 }
-.balFocus { background: var(--ink); }
-.balOther { background: var(--other); }
 .balEmpty { flex: 1; }
-.balLegend { display: flex; gap: 18px; flex-wrap: wrap; }
+.balLegend { display: flex; gap: 10px 16px; flex-wrap: wrap; }
 .balItem { font-size: 13px; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; }
 .balItem b { color: var(--ink); font-weight: 700; }
-.balDotFocus { width: 9px; height: 9px; border-radius: 50%; background: var(--ink); }
-.balDotOther { width: 9px; height: 9px; border-radius: 50%; background: var(--other); }
+.balDot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 
 /* now card */
 .now {
@@ -166,6 +163,15 @@
 .tlAct { font-size: 15px; font-weight: 600; flex: 1; color: var(--ink); }
 .tlDur { font-size: 13px; color: var(--ink-soft); }
 .tlChevron { font-size: 18px; color: var(--ink-soft); opacity: 0.5; margin-left: 2px; }
+.tlMore {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 13px; font-weight: 700;
+  color: var(--ink-soft);
+  margin: 2px 0;
+}
 
 /* пропуск — ярко-розовая строка, зовёт заполнить */
 .tlGap {
