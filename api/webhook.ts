@@ -37,10 +37,12 @@ async function process(update: any) {
 
   if (update.message) {
     const chatId = update.message.chat.id
+    const today = new Date().toISOString().slice(0, 10)
+    const open = await getOpenBlock(today)
     await tg('sendMessage', {
       chat_id: chatId,
-      text: `👋 Твой chat_id: \`${chatId}\`\n\nДобавь в Vercel → Settings → Environment Variables → TELEGRAM_CHAT_ID`,
-      parse_mode: 'Markdown',
+      text: '⏰ Что делаешь?',
+      reply_markup: focusKeyboard(open?.activity_id),
     })
     return
   }
@@ -114,15 +116,6 @@ function parseBody(req: any): any {
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end()
-
-  // ВРЕМЕННАЯ ДИАГНОСТИКА — показывает, что реально пришло
-  try {
-    const raw = typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
-    await tg('sendMessage', {
-      chat_id: CHAT_ID,
-      text: `🔍 webhook получил (тип ${typeof req.body}):\n${(raw || 'пусто').slice(0, 500)}`,
-    })
-  } catch {}
 
   try {
     await process(parseBody(req))
