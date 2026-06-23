@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import s from './Home.module.css'
 import { FOCUSES, ACTIVITIES } from '../activities'
-import { getTodayStats, type DayStats } from '../lib/data'
+import { getTodayStats, startActivity, type DayStats, type ActivityBlock } from '../lib/data'
+import { ActivityPicker } from '../components/ActivityPicker'
+import { EditBlock } from '../components/EditBlock'
 
 const FOCUS_COLORS: Record<string, string> = {
   biz:   'var(--biz)',
@@ -48,6 +50,8 @@ export function Home() {
 
   const [stats, setStats] = useState<DayStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [picking, setPicking] = useState(false)
+  const [editBlock, setEditBlock] = useState<ActivityBlock | null>(null)
 
   const load = () => {
     setLoading(true)
@@ -125,18 +129,13 @@ export function Home() {
           ) : (
             <>
               <div className={s.nowAct}>не отмечено</div>
-              <div className={s.nowTime}>ответь боту ↗</div>
+              <div className={s.nowTime}>нажми «выбрать»</div>
             </>
           )}
         </div>
-        <a
-          className={s.nowBtn}
-          href="https://t.me/remote_tracker_dp_bot"
-          target="_blank"
-          rel="noreferrer"
-        >
-          открыть бот ›
-        </a>
+        <button className={s.nowBtn} onClick={() => setPicking(true)}>
+          {currentAct ? 'сменить ›' : 'выбрать ›'}
+        </button>
       </div>
 
       {blocks.length > 0 && (
@@ -163,13 +162,13 @@ export function Home() {
             {blocks.map((b) => {
               const act = ACTIVITIES.find((a) => a.id === b.activity_id)
               return (
-                <div key={b.id} className={s.tlRow}>
+                <button key={b.id} className={s.tlRow} onClick={() => setEditBlock(b)}>
                   <div className={s.tlDot} style={{ background: FOCUS_COLORS[b.focus] }} />
                   <div className={s.tlAct}>{act?.label ?? b.activity_id}</div>
                   <div className={s.tlDur}>
                     {fmt(b.started_at)}–{b.ended_at ? fmt(b.ended_at) : 'сейчас'}
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>
@@ -179,10 +178,28 @@ export function Home() {
       {blocks.length === 0 && !loading && (
         <div className={s.emptyCard}>
           <div className={s.emptyText}>Пока нет записей на сегодня</div>
-          <div className={s.emptyHint}>Ответь боту — и лента дня появится здесь</div>
+          <div className={s.emptyHint}>Нажми «выбрать» выше или ответь боту</div>
         </div>
       )}
 
+      {picking && (
+        <ActivityPicker
+          onPick={async (id, focus, startedAt) => {
+            await startActivity(id, focus, startedAt)
+            setPicking(false)
+            load()
+          }}
+          onClose={() => setPicking(false)}
+        />
+      )}
+
+      {editBlock && (
+        <EditBlock
+          block={editBlock}
+          onDone={() => { setEditBlock(null); load() }}
+          onClose={() => setEditBlock(null)}
+        />
+      )}
     </div>
   )
 }

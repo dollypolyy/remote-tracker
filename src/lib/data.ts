@@ -41,6 +41,58 @@ export async function getTodayStats(): Promise<DayStats> {
   return { blocks, hoursByFocus, currentBlock }
 }
 
+// ─── Запись и правка активностей (та же логика, что в боте) ──
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+// «14:30» / «1430» / «14 30» → Date сегодня по МСК
+export function parseMskTime(text: string): Date | null {
+  const m = text.trim().match(/^(\d{1,2})[:.\s]?(\d{2})$/)
+  if (!m) return null
+  const hh = +m[1], mm = +m[2]
+  if (hh > 23 || mm > 59) return null
+  const d = new Date(`${todayStr()}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00+03:00`)
+  return isNaN(d.getTime()) ? null : d
+}
+
+export function mskHHMM(iso: string): string {
+  return new Date(iso).toLocaleTimeString('ru-RU', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow',
+  })
+}
+
+// Начать активность: закрыть текущий открытый блок этим же временем, открыть новый
+export async function startActivity(activityId: string, focus: FocusKey, startedAt: Date): Promise<void> {
+  const today = todayStr()
+  await supabase
+    .from('activity_blocks')
+    .update({ ended_at: startedAt.toISOString() })
+    .eq('date', today)
+    .is('ended_at', null)
+  const { error } = await supabase.from('activity_blocks').insert({
+    date: today,
+    started_at: startedAt.toISOString(),
+    activity_id: activityId,
+    focus,
+  })
+  if (error) throw error
+}
+
+export async function updateBlock(
+  id: string,
+  patch: Partial<Pick<ActivityBlock, 'activity_id' | 'focus' | 'started_at' | 'ended_at'>>,
+): Promise<void> {
+  const { error } = await supabase.from('activity_blocks').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteBlock(id: string): Promise<void> {
+  const { error } = await supabase.from('activity_blocks').delete().eq('id', id)
+  if (error) throw error
+}
+
 // ─── Дневник ───────────────────────────────────────────────
 
 export interface DiaryEntry {
