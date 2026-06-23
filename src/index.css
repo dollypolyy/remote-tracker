@@ -1,105 +1,42 @@
 :root {
-  --pink: #EFA9C4;
-  --pink-light: #F3C2D4;
-  --pink-deep: #E090B5;
-  --blue: #AFC2E3;
-  --blue-light: #B9CBE8;
-  --bg: #FFFDFD;
-  --text: #544B5E;
-  --text-muted: #8f86a0;
-  --card-bg: #FFFFFF;
-  --radius: 22px;
-  --radius-sm: 12px;
-  --shadow: 0 4px 20px rgba(239, 169, 196, 0.18);
-  --shadow-hover: 0 8px 28px rgba(239, 169, 196, 0.28);
-  --font-head: 'Fraunces', Georgia, serif;
-  --font-body: 'Nunito', system-ui, sans-serif;
+  --rose-1: #F7DEE2;
+  --rose-2: #ECB4BC;
+  --rose-3: #E392A0;
+  --orb-1: #FAD2D7;
+  --orb-2: #E0808F;
+  --ink: #211A1E;
+  --ink-soft: #6E6168;
+  --glass: rgba(255, 255, 255, 0.42);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  --white: #FFFFFF;
+  --biz: #211A1E;
+  --sport: #E5876F;
+  --blog: #B884CE;
+  --other: #C0A9B0;
+  --radius: 30px;
+  --radius-sm: 18px;
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html {
-  font-size: 16px;
-  -webkit-text-size-adjust: 100%;
-}
+html { font-size: 16px; -webkit-text-size-adjust: 100%; }
 
 body {
-  font-family: var(--font-body);
-  color: var(--text);
-  background-color: var(--bg);
+  font-family: var(--font);
+  color: var(--ink);
   min-height: 100dvh;
-  overflow-x: hidden;
+  background:
+    radial-gradient(120% 70% at 80% 8%, var(--rose-1) 0%, transparent 55%),
+    linear-gradient(170deg, var(--rose-1) 0%, var(--rose-2) 52%, var(--rose-3) 100%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Watercolor stripe background */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-image:
-    linear-gradient(180deg, rgba(239,169,196,0.18) 0%, rgba(239,169,196,0.06) 100%),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0px,
-      transparent 38px,
-      rgba(239,169,196,0.13) 38px,
-      rgba(239,169,196,0.22) 52px,
-      transparent 52px,
-      transparent 80px,
-      rgba(175,194,227,0.12) 80px,
-      rgba(175,194,227,0.20) 92px,
-      transparent 92px,
-      transparent 140px,
-      rgba(239,169,196,0.10) 140px,
-      rgba(239,169,196,0.18) 152px,
-      transparent 152px,
-      transparent 200px,
-      rgba(175,194,227,0.09) 200px,
-      rgba(175,194,227,0.16) 212px,
-      transparent 212px,
-      transparent 260px
-    );
-  filter: blur(2.5px);
-  pointer-events: none;
-}
+button { font-family: var(--font); cursor: pointer; border: none; }
 
-button, input, textarea, select {
-  font-family: var(--font-body);
-  color: var(--text);
-}
-
-button {
-  cursor: pointer;
-}
-
-a {
-  color: var(--pink-deep);
-}
-
-:focus-visible {
-  outline: 2.5px solid var(--pink);
-  outline-offset: 2px;
-}
-
-/* scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--pink-light); border-radius: 4px; }
-
-/* Card entrance animation */
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+:focus-visible { outline: 2.5px solid var(--ink); outline-offset: 3px; }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    transition-duration: 0.001ms !important;
-  }
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
