@@ -26,10 +26,21 @@ export async function getTodayStats(): Promise<DayStats> {
 
   if (error) throw error
 
-  const blocks = (data || []) as ActivityBlock[]
+  const raw = (data || []) as ActivityBlock[]
   const now = new Date()
-  const hoursByFocus: Record<FocusKey, number> = { biz: 0, sport: 0, blog: 0, other: 0 }
 
+  // Нормализация: блоки не пересекаются. Каждый заканчивается там,
+  // где начинается следующий. Открытым остаётся только последний.
+  const blocks: ActivityBlock[] = raw.map((b, i) => {
+    const isLast = i === raw.length - 1
+    const nextStart = raw[i + 1] ? +new Date(raw[i + 1].started_at) : null
+    let endMs: number | null = b.ended_at ? +new Date(b.ended_at) : null
+    if (endMs == null && !isLast) endMs = nextStart            // закрыть «висящий» открытый блок
+    if (nextStart != null && endMs != null && endMs > nextStart) endMs = nextStart // подрезать наложение
+    return { ...b, ended_at: endMs != null ? new Date(endMs).toISOString() : null }
+  })
+
+  const hoursByFocus: Record<FocusKey, number> = { biz: 0, sport: 0, blog: 0, other: 0 }
   for (const block of blocks) {
     const start = new Date(block.started_at)
     const end = block.ended_at ? new Date(block.ended_at) : now
