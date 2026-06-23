@@ -120,6 +120,7 @@ export function TimelineEditor({ blocks, onSaved, onClose, onRequestAdd }: Props
               <div key={i} className={s.handle} style={{ top: yOf(edges[i]) }}
                    onPointerDown={onDown(i)}>
                 <span className={s.handleTime}>{hhmm(edges[i])}</span>
+                <span className={s.line} />
                 <span className={s.dot} />
               </div>
             )

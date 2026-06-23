@@ -112,6 +112,17 @@ export function Home() {
   const totalGoal = focusRows.reduce((acc, f) => acc + f.goalH, 0)
   const focusPct  = totalGoal > 0 ? Math.round((totalDone / totalGoal) * 100) : 0
 
+  // баланс дня: фокус (бизнес+спорт+блог) vs не-фокус (прочее)
+  const focusH    = hoursByFocus.biz + hoursByFocus.sport + hoursByFocus.blog
+  const nonFocusH = hoursByFocus.other
+  const trackedH  = focusH + nonFocusH
+  const focusShare = trackedH > 0 ? Math.round((focusH / trackedH) * 100) : 0
+
+  // приоритет дня — на что ушло больше всего
+  const priorityKey = (Object.keys(hoursByFocus) as (keyof typeof hoursByFocus)[])
+    .reduce((a, b) => (hoursByFocus[b] > hoursByFocus[a] ? b : a), 'biz')
+  const priorityH = hoursByFocus[priorityKey]
+
   const currentBlock = stats?.currentBlock ?? null
   const currentAct   = currentBlock ? ACTIVITIES.find((a) => a.id === currentBlock.activity_id) : null
   const currentFocus = currentBlock ? FOCUSES[currentBlock.focus] : null
@@ -159,6 +170,30 @@ export function Home() {
             </div>
           )
         })}
+      </div>
+
+      <div className={s.balance}>
+        <div className={s.balHead}>
+          <div className={s.balTitle}>баланс дня</div>
+          {priorityH > 0 && (
+            <div className={s.balPriority}>главное · {FOCUSES[priorityKey].name}</div>
+          )}
+        </div>
+        <div className={s.balBar}>
+          <div className={s.balFocus} style={{ flex: Math.max(0.001, focusH) }} />
+          <div className={s.balOther} style={{ flex: Math.max(0.001, nonFocusH) }} />
+          {trackedH === 0 && <div className={s.balEmpty} />}
+        </div>
+        <div className={s.balLegend}>
+          <div className={s.balItem}>
+            <span className={s.balDotFocus} />
+            в фокусе <b>{focusH.toFixed(1)}ч</b> · {focusShare}%
+          </div>
+          <div className={s.balItem}>
+            <span className={s.balDotOther} />
+            вне фокуса <b>{nonFocusH.toFixed(1)}ч</b>
+          </div>
+        </div>
       </div>
 
       <div className={s.now}>

@@ -58,41 +58,45 @@
 .segAct { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .segDur { font-size: 12px; color: var(--ink-soft); }
 
-/* перетаскиваемая граница */
+/* перетаскиваемая граница — тянем за всю линию, большая зона захвата */
 .handle {
   position: absolute;
   left: -64px; right: 0;
-  height: 0;
-  display: flex; align-items: center;
+  height: 38px;                 /* широкая зона для пальца */
+  display: flex; align-items: center; gap: 0;
   transform: translateY(-50%);
   cursor: grab;
   touch-action: none;
+  z-index: 4;
 }
 .handle:active { cursor: grabbing; }
 .handleTime {
-  width: 52px;
+  width: 56px;
   font-size: 12px; font-weight: 700;
   color: var(--ink);
   text-align: right;
   padding-right: 8px;
-}
-.dot {
-  width: 18px; height: 18px;
-  border-radius: 50%;
-  background: var(--white);
-  border: 3px solid var(--ink);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
   flex-shrink: 0;
-  margin-left: -9px;
-  position: relative; z-index: 2;
 }
-/* пунктир по всей ширине у границы */
-.handle::after {
-  content: '';
-  position: absolute;
-  left: 64px; right: 0; top: 50%;
-  border-top: 1.5px dashed rgba(33, 26, 30, 0.3);
+.line {
+  flex: 1;
+  height: 0;
+  border-top: 1.5px dashed rgba(33, 26, 30, 0.32);
 }
+.handle:active .line { border-top-color: var(--ink); }
+/* стеклянный зеркальный кружок справа */
+.dot {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-left: 6px;
+  background: linear-gradient(145deg, rgba(255,255,255,0.85), rgba(255,255,255,0.35));
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 6px rgba(33, 26, 30, 0.18), inset 0 1px 2px rgba(255,255,255,0.8);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.handle:active .dot { transform: scale(1.15); }
 
 .add {
   width: 100%;

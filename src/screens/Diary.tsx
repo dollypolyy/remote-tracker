@@ -23,7 +23,7 @@ const empty: DiaryEntry = {
   date: '', done: '', achieved: '', not_achieved: '', thoughts: '', goals: '', mood: null,
 }
 
-export function Diary() {
+export function Diary({ onBack }: { onBack: () => void }) {
   const today = new Date().toISOString().slice(0, 10)
   const todayLabel = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
 
@@ -76,6 +76,7 @@ export function Diary() {
   return (
     <div className={s.screen}>
       <div className={s.header}>
+        <button className={s.back} onClick={onBack} aria-label="назад">‹ назад</button>
         <div className={s.title}>дневник</div>
         <div className={s.date}>{todayLabel}</div>
       </div>

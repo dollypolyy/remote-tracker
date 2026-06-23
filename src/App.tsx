@@ -10,7 +10,7 @@ export default function App() {
 
   return (
     <>
-      {tab === 'home' ? <Home /> : <Diary />}
+      {tab === 'home' ? <Home /> : <Diary onBack={() => setTab('home')} />}
 
       <nav className={nav.nav}>
         <button
