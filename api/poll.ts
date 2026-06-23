@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { tg, focusKeyboard, CHAT_ID, SUPABASE_URL, SUPABASE_ANON_KEY } from './_bot'
+import { tg, focusKeyboard, CHAT_ID, SUPABASE_URL, SUPABASE_ANON_KEY } from './_bot.js'
 
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 

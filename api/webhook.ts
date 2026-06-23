@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import {
   tg, actLabel, activityKeyboard, focusKeyboard,
   ACT_TO_FOCUS, FOCUS_LABELS, SUPABASE_URL, SUPABASE_ANON_KEY,
-} from './_bot'
+} from './_bot.js'
 
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
