@@ -3,6 +3,10 @@ import { tg, BOT_TOKEN, CHAT_ID, SUPABASE_URL, SUPABASE_ANON_KEY } from './_bot.
 
 export default async function handler(_req: any, res: any) {
   const info = await tg('getWebhookInfo', {})
+  const testSend = await tg('sendMessage', {
+    chat_id: CHAT_ID,
+    text: '🧪 Тестовое сообщение от debug — если ты это видишь, отправка работает.',
+  })
   res.status(200).json({
     env: {
       BOT_TOKEN: BOT_TOKEN ? `есть (${BOT_TOKEN.slice(0, 6)}…)` : 'НЕТ',
@@ -11,5 +15,6 @@ export default async function handler(_req: any, res: any) {
       SUPABASE_ANON_KEY: SUPABASE_ANON_KEY ? 'есть' : 'НЕТ',
     },
     webhook: info,
+    testSend,
   })
 }
