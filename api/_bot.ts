@@ -50,10 +50,10 @@ export const ACTS_BY_FOCUS: Record<string, { id: string; label: string }[]> = {
 }
 
 export const FOCUS_LABELS: Record<string, string> = {
-  biz:   '🟣 бизнес',
-  sport: '🟢 спорт',
-  blog:  '🔵 блог',
-  other: '⚪ прочее',
+  biz:   '💼 бизнес',
+  sport: '🏃‍♀️ спорт',
+  blog:  '🎬 блог',
+  other: '🌿 прочее',
 }
 
 export const ACT_TO_FOCUS: Record<string, string> = Object.entries(ACTS_BY_FOCUS)
@@ -67,18 +67,39 @@ export function actLabel(actId: string): string {
 export function focusKeyboard(currentActId?: string | null) {
   const rows: { text: string; callback_data: string }[][] = [
     [
-      { text: '🟣 бизнес', callback_data: 'f:biz' },
-      { text: '🟢 спорт',  callback_data: 'f:sport' },
+      { text: '💼 бизнес', callback_data: 'f:biz' },
+      { text: '🏃‍♀️ спорт',  callback_data: 'f:sport' },
     ],
     [
-      { text: '🔵 блог',   callback_data: 'f:blog' },
-      { text: '⚪ прочее', callback_data: 'f:other' },
+      { text: '🎬 блог',   callback_data: 'f:blog' },
+      { text: '🌿 прочее', callback_data: 'f:other' },
     ],
   ]
   if (currentActId) {
     rows.push([{ text: `✅ продолжаю — ${actLabel(currentActId)}`, callback_data: 'cont' }])
   }
   return { inline_keyboard: rows }
+}
+
+// Клавиатура «когда началось?» — пресеты «N минут назад» + ручной ввод
+export function timeKeyboard(actId: string) {
+  return {
+    inline_keyboard: [
+      [
+        { text: 'только что', callback_data: `s:${actId}:0` },
+        { text: '15 мин назад', callback_data: `s:${actId}:15` },
+      ],
+      [
+        { text: '30 мин назад', callback_data: `s:${actId}:30` },
+        { text: '1 ч назад', callback_data: `s:${actId}:60` },
+      ],
+      [
+        { text: '1.5 ч назад', callback_data: `s:${actId}:90` },
+        { text: '2 ч назад', callback_data: `s:${actId}:120` },
+      ],
+      [{ text: '⌨️ ввести точное время', callback_data: `s:${actId}:custom` }],
+    ],
+  }
 }
 
 export function activityKeyboard(focus: string) {
