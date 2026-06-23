@@ -1,0 +1,156 @@
+.screen {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 22px 18px 110px;
+  min-height: 100dvh;
+}
+
+/* header */
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+.dow { font-size: 14px; color: var(--ink-soft); font-weight: 500; }
+.date { font-size: 40px; font-weight: 800; letter-spacing: -1.5px; line-height: 0.95; }
+.avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--orb-1), var(--orb-2));
+}
+
+/* hero glass card */
+.hero {
+  position: relative;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border-radius: var(--radius);
+  padding: 24px 22px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.orb {
+  position: absolute;
+  right: -40px; top: -30px;
+  width: 180px; height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--orb-1), var(--orb-2));
+  opacity: 0.55;
+  filter: blur(2px);
+}
+.heroLabel { font-size: 13px; color: var(--ink-soft); font-weight: 500; position: relative; }
+.heroBig {
+  font-size: 56px; font-weight: 800; letter-spacing: -2px; line-height: 1;
+  margin: 4px 0 2px; position: relative;
+}
+.heroSub { font-size: 13px; color: var(--ink-soft); position: relative; }
+
+/* focus rings row */
+.rings {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.ringCard {
+  flex: 1;
+  background: var(--white);
+  border-radius: var(--radius-sm);
+  padding: 14px 10px 12px;
+  text-align: center;
+}
+.ringWrap { position: relative; width: 64px; height: 64px; margin: 0 auto 8px; }
+.ringVal {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+}
+.ringName { font-size: 11px; font-weight: 600; color: var(--ink-soft); }
+.ringGoal { font-size: 10px; color: var(--ink-soft); opacity: 0.7; margin-top: 1px; }
+
+/* now card */
+.now {
+  background: var(--ink);
+  color: var(--white);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.nowLabel { font-size: 12px; opacity: 0.6; font-weight: 500; }
+.nowAct { font-size: 22px; font-weight: 700; margin-top: 2px; }
+.nowTime { font-size: 13px; opacity: 0.7; margin-top: 2px; }
+.nowBtn {
+  background: var(--white);
+  color: var(--ink);
+  border-radius: 30px;
+  padding: 11px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+}
+
+/* timeline */
+.tlCard {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 18px 20px 20px;
+}
+.tlHead {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.tlTitle { font-size: 17px; font-weight: 700; }
+.tlHint { font-size: 12px; color: var(--ink-soft); }
+.tlBar {
+  display: flex; height: 14px; border-radius: 8px; overflow: hidden; gap: 2px;
+  margin-bottom: 14px;
+}
+.tlSeg { height: 100%; }
+.tlList { display: flex; flex-direction: column; gap: 10px; }
+.tlRow { display: flex; align-items: center; gap: 10px; }
+.tlDot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.tlAct { font-size: 14px; font-weight: 600; flex: 1; }
+.tlDur { font-size: 13px; color: var(--ink-soft); }
+
+/* empty state */
+.emptyCard {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border-radius: var(--radius);
+  padding: 28px 22px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+.emptyText { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.emptyHint { font-size: 13px; color: var(--ink-soft); }
+
+/* bottom nav */
+.nav {
+  position: fixed;
+  left: 50%; transform: translateX(-50%);
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border-radius: 40px;
+  padding: 8px;
+}
+.navBtn {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: transparent; color: var(--ink-soft);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.navActive { background: var(--white); color: var(--ink); }
+.navAdd { background: var(--ink); color: var(--white); }
