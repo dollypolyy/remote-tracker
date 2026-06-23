@@ -36,14 +36,19 @@
   touch-action: none;      /* чтобы drag не скроллил страницу */
 }
 
-/* сегмент блока */
+/* сегмент блока (кнопка переименования) */
 .seg {
   position: absolute;
   left: 0; right: 0;
   display: flex; align-items: center; gap: 12px;
-  padding: 2px 0;
+  padding: 2px 4px;
   overflow: hidden;
+  background: none;
+  text-align: left;
+  border-radius: 10px;
+  color: var(--ink);
 }
+.seg:active:not(:disabled) { background: rgba(255, 255, 255, 0.5); }
 .segBar {
   width: 10px; align-self: stretch;
   border-radius: 6px;
@@ -89,6 +94,15 @@
   border-top: 1.5px dashed rgba(33, 26, 30, 0.3);
 }
 
+.add {
+  width: 100%;
+  background: var(--white);
+  color: var(--ink);
+  border-radius: var(--radius);
+  padding: 15px;
+  font-size: 15px; font-weight: 700;
+  margin-top: 14px;
+}
 .save {
   width: 100%;
   background: var(--ink);
@@ -96,5 +110,5 @@
   border-radius: var(--radius);
   padding: 16px;
   font-size: 16px; font-weight: 700;
-  margin-top: 18px;
+  margin-top: 8px;
 }

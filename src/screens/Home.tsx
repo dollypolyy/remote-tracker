@@ -273,6 +273,7 @@ export function Home() {
           blocks={blocks}
           onSaved={() => { setEditDay(false); load() }}
           onClose={() => setEditDay(false)}
+          onRequestAdd={() => { setEditDay(false); setPicking(true) }}
         />
       )}
     </div>
