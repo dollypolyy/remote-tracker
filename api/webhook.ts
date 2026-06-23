@@ -103,11 +103,20 @@ async function process(update: any) {
   }
 }
 
+function parseBody(req: any): any {
+  const b = req.body
+  if (!b) return {}
+  if (typeof b === 'string') {
+    try { return JSON.parse(b) } catch { return {} }
+  }
+  return b
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end()
 
   try {
-    await process(req.body)
+    await process(parseBody(req))
   } catch (e) {
     console.error('webhook error', e)
   }
