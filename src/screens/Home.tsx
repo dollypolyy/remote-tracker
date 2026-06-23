@@ -241,9 +241,9 @@ export function Home() {
             ))}
           </div>
           <div className={s.tlList}>
-            {items.length > 5 && !showAllTl && (
-              <button className={s.tlMore} onClick={() => setShowAllTl(true)}>
-                показать все ({items.length - 5} ещё) ⌄
+            {items.length > 5 && (
+              <button className={s.tlMore} onClick={() => setShowAllTl((v) => !v)}>
+                {showAllTl ? 'свернуть ⌃' : `показать все (${items.length - 5} ещё) ⌄`}
               </button>
             )}
             {(showAllTl ? items : items.slice(-5)).map((it) => {
@@ -273,9 +273,6 @@ export function Home() {
                 </button>
               )
             })}
-            {showAllTl && items.length > 5 && (
-              <button className={s.tlMore} onClick={() => setShowAllTl(false)}>свернуть ⌃</button>
-            )}
           </div>
         </div>
       )}

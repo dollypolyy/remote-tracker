@@ -30,10 +30,15 @@
 .title { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
 .hint { font-size: 13px; color: var(--ink-soft); margin: 4px 0 18px; }
 
+.railScroll {
+  max-height: 54vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 4px;
+}
 .rail {
   position: relative;
   margin-left: 64px;       /* место под время слева у границ */
-  touch-action: none;      /* чтобы drag не скроллил страницу */
 }
 
 /* сегмент блока (кнопка переименования) */
@@ -115,4 +120,33 @@
   padding: 16px;
   font-size: 16px; font-weight: 700;
   margin-top: 8px;
+}
+
+/* меню действий по блоку */
+.menuOverlay {
+  position: fixed; inset: 0;
+  background: rgba(33, 26, 30, 0.4);
+  display: flex; align-items: flex-end; justify-content: center;
+  z-index: 110;
+}
+.menuSheet {
+  width: 100%; max-width: 440px;
+  background: var(--rose-1);
+  border-radius: 28px 28px 0 0;
+  padding: 18px 18px calc(22px + env(safe-area-inset-bottom));
+}
+.menuTitle { font-size: 18px; font-weight: 800; text-align: center; margin-bottom: 14px; }
+.menuBtn {
+  width: 100%; background: var(--white); color: var(--ink);
+  border-radius: 16px; padding: 16px; font-size: 16px; font-weight: 700;
+  margin-bottom: 8px;
+}
+.menuDel {
+  width: 100%; background: #F4D2DC; color: #C2456A;
+  border-radius: 16px; padding: 16px; font-size: 16px; font-weight: 700;
+  margin-bottom: 8px;
+}
+.menuCancel {
+  width: 100%; background: transparent; color: var(--ink-soft);
+  padding: 12px; font-size: 15px; font-weight: 600;
 }

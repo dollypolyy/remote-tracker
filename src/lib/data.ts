@@ -31,7 +31,7 @@ export async function getTodayStats(): Promise<DayStats> {
 
   // Нормализация: блоки не пересекаются. Каждый заканчивается там,
   // где начинается следующий. Открытым остаётся только последний.
-  const blocks: ActivityBlock[] = raw.map((b, i) => {
+  const normalized: ActivityBlock[] = raw.map((b, i) => {
     const isLast = i === raw.length - 1
     const nextStart = raw[i + 1] ? +new Date(raw[i + 1].started_at) : null
     let endMs: number | null = b.ended_at ? +new Date(b.ended_at) : null
@@ -39,6 +39,19 @@ export async function getTodayStats(): Promise<DayStats> {
     if (nextStart != null && endMs != null && endMs > nextStart) endMs = nextStart // подрезать наложение
     return { ...b, ended_at: endMs != null ? new Date(endMs).toISOString() : null }
   })
+
+  // Слияние соседних блоков с одной и той же активностью (и в базе тоже)
+  const blocks: ActivityBlock[] = []
+  for (const b of normalized) {
+    const prev = blocks[blocks.length - 1]
+    if (prev && prev.activity_id === b.activity_id) {
+      prev.ended_at = b.ended_at
+      void supabase.from('activity_blocks').update({ ended_at: b.ended_at }).eq('id', prev.id)
+      void supabase.from('activity_blocks').delete().eq('id', b.id)
+    } else {
+      blocks.push({ ...b })
+    }
+  }
 
   const hoursByFocus: Record<FocusKey, number> = { biz: 0, sport: 0, blog: 0, other: 0 }
   for (const block of blocks) {
