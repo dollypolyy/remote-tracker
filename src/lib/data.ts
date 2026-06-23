@@ -40,3 +40,34 @@ export async function getTodayStats(): Promise<DayStats> {
   const currentBlock = blocks.find((b) => !b.ended_at) ?? null
   return { blocks, hoursByFocus, currentBlock }
 }
+
+// ─── Дневник ───────────────────────────────────────────────
+
+export interface DiaryEntry {
+  id?: string
+  date: string
+  done: string
+  achieved: string
+  not_achieved: string
+  thoughts: string
+  goals: string
+  mood: number | null
+  raw_transcript?: string
+}
+
+export async function getDiary(date: string): Promise<DiaryEntry | null> {
+  const { data, error } = await supabase
+    .from('diary_entries')
+    .select('*')
+    .eq('date', date)
+    .maybeSingle()
+  if (error) throw error
+  return (data as DiaryEntry) ?? null
+}
+
+export async function saveDiary(entry: DiaryEntry): Promise<void> {
+  const { error } = await supabase
+    .from('diary_entries')
+    .upsert(entry, { onConflict: 'date' })
+  if (error) throw error
+}

@@ -183,11 +183,6 @@ export function Home() {
         </div>
       )}
 
-      <nav className={s.nav}>
-        <button className={`${s.navBtn} ${s.navActive}`} aria-label="дом">⌂</button>
-        <button className={s.navBtn} aria-label="дневник">✎</button>
-        <button className={`${s.navBtn} ${s.navAdd}`} onClick={load} aria-label="обновить">↻</button>
-      </nav>
     </div>
   )
 }

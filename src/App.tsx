@@ -1,5 +1,29 @@
+import { useState } from 'react'
 import { Home } from './screens/Home'
+import { Diary } from './screens/Diary'
+import nav from './nav.module.css'
+
+type Tab = 'home' | 'diary'
 
 export default function App() {
-  return <Home />
+  const [tab, setTab] = useState<Tab>('home')
+
+  return (
+    <>
+      {tab === 'home' ? <Home /> : <Diary />}
+
+      <nav className={nav.nav}>
+        <button
+          className={`${nav.btn} ${tab === 'home' ? nav.active : ''}`}
+          onClick={() => setTab('home')}
+          aria-label="дом"
+        >⌂</button>
+        <button
+          className={`${nav.btn} ${tab === 'diary' ? nav.active : ''}`}
+          onClick={() => setTab('diary')}
+          aria-label="дневник"
+        >✎</button>
+      </nav>
+    </>
+  )
 }
