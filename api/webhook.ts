@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import {
   tg, actLabel, activityKeyboard, focusKeyboard,
-  ACT_TO_FOCUS, FOCUS_LABELS, SUPABASE_URL, SUPABASE_ANON_KEY,
+  ACT_TO_FOCUS, FOCUS_LABELS, SUPABASE_URL, SUPABASE_ANON_KEY, CHAT_ID,
 } from './_bot.js'
 
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -114,6 +114,15 @@ function parseBody(req: any): any {
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end()
+
+  // ВРЕМЕННАЯ ДИАГНОСТИКА — показывает, что реально пришло
+  try {
+    const raw = typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
+    await tg('sendMessage', {
+      chat_id: CHAT_ID,
+      text: `🔍 webhook получил (тип ${typeof req.body}):\n${(raw || 'пусто').slice(0, 500)}`,
+    })
+  } catch {}
 
   try {
     await process(parseBody(req))
