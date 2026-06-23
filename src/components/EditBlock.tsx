@@ -52,6 +52,7 @@ export function EditBlock({ block, onDone, onClose }: Props) {
     return (
       <ActivityPicker
         title="заменить на"
+        activityOnly
         onPick={(id, f) => { setActId(id); setFocus(f); setChanging(false) }}
         onClose={() => setChanging(false)}
       />

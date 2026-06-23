@@ -24,12 +24,13 @@ interface Props {
   // если заданы — режим заполнения пропуска [fixedStart, fixedEnd]
   fixedStart?: Date
   fixedEnd?: Date
-  gapToNow?: boolean   // пропуск тянется до «сейчас»
+  gapToNow?: boolean      // пропуск тянется до «сейчас»
+  activityOnly?: boolean  // только выбрать активность (для замены), без вопроса о времени
   onPick: (activityId: string, focus: FocusKey, startedAt: Date, endAt?: Date) => void
   onClose: () => void
 }
 
-export function ActivityPicker({ title = 'что делаешь?', fixedStart, fixedEnd, gapToNow, onPick, onClose }: Props) {
+export function ActivityPicker({ title = 'что делаешь?', fixedStart, fixedEnd, gapToNow, activityOnly, onPick, onClose }: Props) {
   const [step, setStep] = useState<'focus' | 'activity' | 'time' | 'gapEnd'>('focus')
   const [focus, setFocus] = useState<FocusKey | null>(null)
   const [actId, setActId] = useState<string | null>(null)
@@ -39,6 +40,7 @@ export function ActivityPicker({ title = 'что делаешь?', fixedStart, f
   const isGap = !!fixedStart
 
   const pickActivity = (id: string, f: FocusKey) => {
+    if (activityOnly) { onPick(id, f, new Date()); return }
     setActId(id); setFocus(f)
     setStep(isGap ? 'gapEnd' : 'time')
   }

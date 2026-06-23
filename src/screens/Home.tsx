@@ -227,6 +227,7 @@ export function Home() {
                   <div className={s.tlDur}>
                     {fmt(b.started_at)}–{b.ended_at ? fmt(b.ended_at) : 'сейчас'}
                   </div>
+                  <div className={s.tlChevron}>›</div>
                 </button>
               )
             })}
