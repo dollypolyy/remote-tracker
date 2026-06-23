@@ -120,9 +120,7 @@
 .tlSeg { height: 100%; }
 .tlSegGap {
   height: 100%;
-  background:
-    repeating-linear-gradient(90deg, rgba(33,26,30,0.18) 0 2px, transparent 2px 6px),
-    rgba(255, 255, 255, 0.7);
+  background: var(--gap);
   border-radius: 4px;
 }
 .tlList { display: flex; flex-direction: column; gap: 4px; }
@@ -137,22 +135,25 @@
 .tlAct { font-size: 15px; font-weight: 600; flex: 1; color: var(--ink); }
 .tlDur { font-size: 13px; color: var(--ink-soft); }
 
-/* пропуск — пунктирная строка, кликабельна */
+/* пропуск — ярко-розовая строка, зовёт заполнить */
 .tlGap {
   display: flex; align-items: center; gap: 10px;
   width: 100%; text-align: left;
-  padding: 8px 10px; border-radius: 12px;
-  color: var(--ink-soft);
-  background: rgba(255, 255, 255, 0.55);
-  border: 1.5px dashed rgba(33, 26, 30, 0.22);
+  padding: 11px 12px; border-radius: 14px;
+  color: var(--white);
+  background: var(--gap);
+  box-shadow: 0 4px 14px rgba(255, 61, 134, 0.32);
 }
-.tlGap:active { background: rgba(255, 255, 255, 0.8); }
+.tlGap:active { filter: brightness(0.95); }
 .tlGapDot {
-  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
-  border: 1.5px dashed rgba(33, 26, 30, 0.4);
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.28);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; line-height: 1;
 }
-.tlGapText { font-size: 14px; font-weight: 600; flex: 1; }
-.tlGapDur { font-size: 13px; color: var(--ink-soft); }
+.tlGapDot::before { content: '+'; }
+.tlGapText { font-size: 15px; font-weight: 700; flex: 1; }
+.tlGapDur { font-size: 13px; color: rgba(255, 255, 255, 0.85); font-weight: 600; }
 
 /* empty state */
 .emptyCard {

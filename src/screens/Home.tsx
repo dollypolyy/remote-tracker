@@ -252,7 +252,8 @@ export function Home() {
         <ActivityPicker
           title="что было в это время?"
           fixedStart={fillGap.start}
-          fixedEnd={fillGap.toNow ? undefined : fillGap.end}
+          fixedEnd={fillGap.end}
+          gapToNow={fillGap.toNow}
           onPick={handlePick}
           onClose={() => setFillGap(null)}
         />

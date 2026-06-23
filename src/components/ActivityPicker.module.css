@@ -64,12 +64,21 @@
 }
 
 /* time */
+.gapInfo { font-size: 13px; color: var(--ink-soft); margin: -8px 0 16px; }
 .timeGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
 .timeBtn {
   background: var(--white);
   border-radius: 14px;
   padding: 15px 10px;
   font-size: 15px; font-weight: 600;
+}
+.timeBtnWide {
+  grid-column: 1 / -1;
+  background: var(--ink);
+  color: var(--white);
+  border-radius: 14px;
+  padding: 15px 10px;
+  font-size: 15px; font-weight: 700;
 }
 .customRow { display: flex; gap: 8px; }
 .timeInput {
