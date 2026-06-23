@@ -158,6 +158,67 @@ export async function deleteBlock(id: string): Promise<void> {
   if (error) throw error
 }
 
+// ─── Статистика за период ───────────────────────────────────
+
+export interface DayAgg {
+  date: string
+  hoursByFocus: Record<FocusKey, number>
+  focusH: number       // бизнес + спорт + блог
+  otherH: number
+  mood: number | null
+}
+
+function emptyFocus(): Record<FocusKey, number> {
+  return { biz: 0, sport: 0, blog: 0, other: 0 }
+}
+
+export async function getRangeStats(days: number): Promise<DayAgg[]> {
+  const start = new Date()
+  start.setDate(start.getDate() - (days - 1))
+  const startISO = start.toISOString().slice(0, 10)
+
+  const [{ data: blockData }, { data: diaryData }] = await Promise.all([
+    supabase.from('activity_blocks').select('*').gte('date', startISO).order('started_at', { ascending: true }),
+    supabase.from('diary_entries').select('date, mood').gte('date', startISO),
+  ])
+
+  const blocks = (blockData || []) as ActivityBlock[]
+  const moodByDate = new Map<string, number | null>()
+  for (const d of (diaryData || []) as { date: string; mood: number | null }[]) {
+    moodByDate.set(d.date, d.mood)
+  }
+
+  // группируем блоки по дате
+  const byDate = new Map<string, ActivityBlock[]>()
+  for (const b of blocks) {
+    if (!byDate.has(b.date)) byDate.set(b.date, [])
+    byDate.get(b.date)!.push(b)
+  }
+
+  const now = Date.now()
+  const result: DayAgg[] = []
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    const date = d.toISOString().slice(0, 10)
+    const dayBlocks = byDate.get(date) ?? []
+    const hoursByFocus = emptyFocus()
+
+    // нормализуем (подрезаем наложения внутри дня) и считаем
+    dayBlocks.forEach((b, idx) => {
+      const nextStart = dayBlocks[idx + 1] ? +new Date(dayBlocks[idx + 1].started_at) : null
+      let endMs = b.ended_at ? +new Date(b.ended_at) : (nextStart ?? now)
+      if (nextStart != null && endMs > nextStart) endMs = nextStart
+      const h = Math.max(0, (endMs - +new Date(b.started_at)) / 3_600_000)
+      hoursByFocus[b.focus] += h
+    })
+
+    const focusH = hoursByFocus.biz + hoursByFocus.sport + hoursByFocus.blog
+    result.push({ date, hoursByFocus, focusH, otherH: hoursByFocus.other, mood: moodByDate.get(date) ?? null })
+  }
+  return result
+}
+
 // ─── Дневник ───────────────────────────────────────────────
 
 export interface DiaryEntry {
