@@ -1,7 +1,7 @@
 .nav {
   position: fixed;
   left: 50%; transform: translateX(-50%);
-  bottom: 22px;
+  bottom: calc(18px + env(safe-area-inset-bottom));
   display: flex;
   align-items: center;
   gap: 8px;

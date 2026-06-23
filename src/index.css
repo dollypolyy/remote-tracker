@@ -33,7 +33,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-button { font-family: var(--font); cursor: pointer; border: none; }
+button {
+  font-family: var(--font);
+  cursor: pointer;
+  border: none;
+  color: inherit;            /* не даём iOS красить текст кнопок в синий */
+  -webkit-tap-highlight-color: transparent;
+}
+a { color: inherit; }
 
 :focus-visible { outline: 2.5px solid var(--ink); outline-offset: 3px; }
 

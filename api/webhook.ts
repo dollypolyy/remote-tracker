@@ -81,6 +81,13 @@ async function process(update: any) {
         })
         return
       }
+      if (parsed.getTime() > Date.now() + 60_000) {
+        await tg('sendMessage', {
+          chat_id: chatId,
+          text: '⏱ Нельзя ставить время вперёд 🙂 Напиши время, которое уже прошло.',
+        })
+        return
+      }
       await confirmStart(chatId, actId, parsed)
       return
     }

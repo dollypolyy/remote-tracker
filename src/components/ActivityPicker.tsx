@@ -18,18 +18,27 @@ const TIME_PRESETS = [
 
 interface Props {
   title?: string
-  onPick: (activityId: string, focus: FocusKey, startedAt: Date) => void
+  // если заданы — пропускаем выбор времени и сразу заполняем этот промежуток
+  fixedStart?: Date
+  fixedEnd?: Date
+  onPick: (activityId: string, focus: FocusKey, startedAt: Date, endAt?: Date) => void
   onClose: () => void
 }
 
-export function ActivityPicker({ title = 'что делаешь?', onPick, onClose }: Props) {
+export function ActivityPicker({ title = 'что делаешь?', fixedStart, fixedEnd, onPick, onClose }: Props) {
   const [step, setStep] = useState<'focus' | 'activity' | 'time'>('focus')
   const [focus, setFocus] = useState<FocusKey | null>(null)
   const [actId, setActId] = useState<string | null>(null)
   const [customTime, setCustomTime] = useState('')
   const [error, setError] = useState('')
 
+  const pickActivity = (id: string, f: FocusKey) => {
+    if (fixedStart) { onPick(id, f, fixedStart, fixedEnd); return }
+    setActId(id); setFocus(f); setStep('time')
+  }
+
   const confirm = (startedAt: Date) => {
+    if (startedAt.getTime() > Date.now() + 60_000) { setError('Нельзя ставить время вперёд'); return }
     if (focus && actId) onPick(actId, focus, startedAt)
   }
 
@@ -53,7 +62,7 @@ export function ActivityPicker({ title = 'что делаешь?', onPick, onClo
                   key={f.key}
                   className={s.focusBtn}
                   style={{ borderColor: f.color }}
-                  onClick={() => { setFocus(f.key); setStep('activity') }}
+                  onClick={() => { setFocus(f.key); setActId(null); setStep('activity') }}
                 >
                   <span className={s.focusIcon}>{FOCUS_ICON[f.key]}</span>
                   <span>{f.name}</span>
@@ -74,7 +83,7 @@ export function ActivityPicker({ title = 'что делаешь?', onPick, onClo
                 <button
                   key={a.id}
                   className={s.actBtn}
-                  onClick={() => { setActId(a.id); setStep('time') }}
+                  onClick={() => pickActivity(a.id, focus)}
                 >
                   {a.label}
                 </button>

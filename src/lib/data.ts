@@ -33,7 +33,7 @@ export async function getTodayStats(): Promise<DayStats> {
   for (const block of blocks) {
     const start = new Date(block.started_at)
     const end = block.ended_at ? new Date(block.ended_at) : now
-    const h = (end.getTime() - start.getTime()) / 3_600_000
+    const h = Math.max(0, (end.getTime() - start.getTime()) / 3_600_000)
     hoursByFocus[block.focus] = (hoursByFocus[block.focus] ?? 0) + h
   }
 
@@ -63,17 +63,58 @@ export function mskHHMM(iso: string): string {
   })
 }
 
-// Начать активность: закрыть текущий открытый блок этим же временем, открыть новый
+export class FutureTimeError extends Error {
+  constructor() { super('Нельзя ставить время в будущем') }
+}
+
+// Подрезает существующие блоки дня так, чтобы [startMs, endMs] никого не пересекал
+async function trimOverlaps(today: string, startMs: number, endMs: number, exceptId?: string) {
+  const { data } = await supabase.from('activity_blocks').select('*').eq('date', today)
+  for (const b of (data || []) as ActivityBlock[]) {
+    if (b.id === exceptId) continue
+    const bs = +new Date(b.started_at)
+    const be = b.ended_at ? +new Date(b.ended_at) : Date.now()
+    if (be <= startMs || bs >= endMs) continue            // не пересекаются
+    if (bs >= startMs && be <= endMs) {                   // полностью внутри → удалить
+      await supabase.from('activity_blocks').delete().eq('id', b.id)
+    } else if (bs < startMs && be > endMs) {              // охватывает новый → разрезать
+      await supabase.from('activity_blocks').update({ ended_at: new Date(startMs).toISOString() }).eq('id', b.id)
+      await supabase.from('activity_blocks').insert({
+        date: today, started_at: new Date(endMs).toISOString(), ended_at: b.ended_at,
+        activity_id: b.activity_id, focus: b.focus,
+      })
+    } else if (bs < startMs) {                            // пересекает слева → обрезать конец
+      await supabase.from('activity_blocks').update({ ended_at: new Date(startMs).toISOString() }).eq('id', b.id)
+    } else {                                              // пересекает справа → обрезать начало
+      await supabase.from('activity_blocks').update({ started_at: new Date(endMs).toISOString() }).eq('id', b.id)
+    }
+  }
+}
+
+// Начать активность (открытый блок до «сейчас»). Время начала не может быть в будущем.
 export async function startActivity(activityId: string, focus: FocusKey, startedAt: Date): Promise<void> {
+  const now = Date.now()
+  if (startedAt.getTime() > now + 60_000) throw new FutureTimeError()
   const today = todayStr()
-  await supabase
-    .from('activity_blocks')
-    .update({ ended_at: startedAt.toISOString() })
-    .eq('date', today)
-    .is('ended_at', null)
+  await trimOverlaps(today, startedAt.getTime(), now)
   const { error } = await supabase.from('activity_blocks').insert({
     date: today,
     started_at: startedAt.toISOString(),
+    activity_id: activityId,
+    focus,
+  })
+  if (error) throw error
+}
+
+// Вставить завершённый блок в конкретный промежуток (заполнение пропуска)
+export async function insertBlock(activityId: string, focus: FocusKey, start: Date, end: Date): Promise<void> {
+  if (start.getTime() > Date.now() + 60_000) throw new FutureTimeError()
+  const today = todayStr()
+  await trimOverlaps(today, start.getTime(), end.getTime())
+  const { error } = await supabase.from('activity_blocks').insert({
+    date: today,
+    started_at: start.toISOString(),
+    ended_at: end.toISOString(),
     activity_id: activityId,
     focus,
   })

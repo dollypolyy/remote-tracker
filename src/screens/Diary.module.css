@@ -1,7 +1,7 @@
 .screen {
   max-width: 440px;
   margin: 0 auto;
-  padding: 22px 18px 120px;
+  padding: calc(16px + env(safe-area-inset-top)) 18px calc(110px + env(safe-area-inset-bottom));
   min-height: 100dvh;
 }
 .loading { padding: 60px 0; text-align: center; color: var(--ink-soft); }

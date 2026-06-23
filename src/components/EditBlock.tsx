@@ -24,10 +24,14 @@ export function EditBlock({ block, onDone, onClose }: Props) {
   const save = async () => {
     const startD = parseMskTime(start)
     if (!startD) { setError('Начало: формат 14:30'); return }
+    const nowMs = Date.now() + 60_000
+    if (startD.getTime() > nowMs) { setError('Начало не может быть в будущем'); return }
     let endISO: string | null = null
     if (end.trim()) {
       const endD = parseMskTime(end)
       if (!endD) { setError('Конец: формат 14:30'); return }
+      if (endD.getTime() > nowMs) { setError('Конец не может быть в будущем'); return }
+      if (endD.getTime() <= startD.getTime()) { setError('Конец должен быть позже начала'); return }
       endISO = endD.toISOString()
     }
     await updateBlock(block.id, {

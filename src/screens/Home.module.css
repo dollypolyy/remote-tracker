@@ -1,7 +1,7 @@
 .screen {
   max-width: 440px;
   margin: 0 auto;
-  padding: 22px 18px 110px;
+  padding: calc(16px + env(safe-area-inset-top)) 18px calc(100px + env(safe-area-inset-bottom));
   min-height: 100dvh;
 }
 
@@ -118,16 +118,41 @@
   margin-bottom: 14px;
 }
 .tlSeg { height: 100%; }
+.tlSegGap {
+  height: 100%;
+  background:
+    repeating-linear-gradient(90deg, rgba(33,26,30,0.18) 0 2px, transparent 2px 6px),
+    rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+}
 .tlList { display: flex; flex-direction: column; gap: 4px; }
 .tlRow {
   display: flex; align-items: center; gap: 10px;
   width: 100%; background: transparent; text-align: left;
-  padding: 6px 4px; border-radius: 10px;
+  padding: 8px 4px; border-radius: 10px;
+  color: var(--ink);                 /* iOS не красит в синий */
 }
 .tlRow:active { background: rgba(0, 0, 0, 0.04); }
 .tlDot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.tlAct { font-size: 14px; font-weight: 600; flex: 1; }
+.tlAct { font-size: 15px; font-weight: 600; flex: 1; color: var(--ink); }
 .tlDur { font-size: 13px; color: var(--ink-soft); }
+
+/* пропуск — пунктирная строка, кликабельна */
+.tlGap {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left;
+  padding: 8px 10px; border-radius: 12px;
+  color: var(--ink-soft);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1.5px dashed rgba(33, 26, 30, 0.22);
+}
+.tlGap:active { background: rgba(255, 255, 255, 0.8); }
+.tlGapDot {
+  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+  border: 1.5px dashed rgba(33, 26, 30, 0.4);
+}
+.tlGapText { font-size: 14px; font-weight: 600; flex: 1; }
+.tlGapDur { font-size: 13px; color: var(--ink-soft); }
 
 /* empty state */
 .emptyCard {

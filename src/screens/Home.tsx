@@ -1,10 +1,32 @@
 import { useEffect, useState } from 'react'
 import s from './Home.module.css'
-import { FOCUSES, ACTIVITIES } from '../activities'
-import { getTodayStats, startActivity, type DayStats, type ActivityBlock } from '../lib/data'
+import { FOCUSES, ACTIVITIES, type FocusKey } from '../activities'
+import {
+  getTodayStats, startActivity, insertBlock, FutureTimeError,
+  type DayStats, type ActivityBlock,
+} from '../lib/data'
 import { ActivityPicker } from '../components/ActivityPicker'
 import { EditBlock } from '../components/EditBlock'
 import { TimelineEditor } from '../components/TimelineEditor'
+
+type TLItem =
+  | { type: 'block'; start: number; end: number; block: ActivityBlock }
+  | { type: 'gap'; start: number; end: number; toNow: boolean }
+
+// Строит ленту дня с 08:00, заполняя промежутки «пропусками»
+function buildTimeline(blocks: ActivityBlock[], dayStart: number, now: number): TLItem[] {
+  const items: TLItem[] = []
+  let cursor = dayStart
+  for (const b of blocks) {
+    const bs = +new Date(b.started_at)
+    const be = b.ended_at ? +new Date(b.ended_at) : now
+    if (bs > cursor + 60_000) items.push({ type: 'gap', start: cursor, end: bs, toNow: false })
+    items.push({ type: 'block', start: bs, end: be, block: b })
+    cursor = Math.max(cursor, be)
+  }
+  if (cursor < now - 60_000) items.push({ type: 'gap', start: cursor, end: now, toNow: true })
+  return items
+}
 
 const FOCUS_COLORS: Record<string, string> = {
   biz:   'var(--biz)',
@@ -54,6 +76,20 @@ export function Home() {
   const [picking, setPicking] = useState(false)
   const [editBlock, setEditBlock] = useState<ActivityBlock | null>(null)
   const [editDay, setEditDay] = useState(false)
+  // заполнение конкретного пропуска
+  const [fillGap, setFillGap] = useState<{ start: Date; end: Date; toNow: boolean } | null>(null)
+
+  const handlePick = async (id: string, focus: FocusKey, start: Date, end?: Date) => {
+    try {
+      if (end) await insertBlock(id, focus, start, end)
+      else await startActivity(id, focus, start)
+    } catch (e) {
+      if (e instanceof FutureTimeError) { alert('Нельзя ставить время вперёд 🙂'); return }
+      throw e
+    } finally {
+      setPicking(false); setFillGap(null); load()
+    }
+  }
 
   const load = () => {
     setLoading(true)
@@ -81,6 +117,13 @@ export function Home() {
   const currentFocus = currentBlock ? FOCUSES[currentBlock.focus] : null
 
   const blocks = stats?.blocks ?? []
+
+  const todayISO = today.toISOString().slice(0, 10)
+  const dayStart = +new Date(`${todayISO}T08:00:00+03:00`)
+  const now = Date.now()
+  const items = buildTimeline(blocks, dayStart, now)
+  const showTimeline = items.length > 0
+  const totalSpan = Math.max(1, now - dayStart)
 
   return (
     <div className={s.screen}>
@@ -140,33 +183,45 @@ export function Home() {
         </button>
       </div>
 
-      {blocks.length > 0 && (
+      {showTimeline && (
         <div className={s.tlCard}>
           <div className={s.tlHead}>
             <div className={s.tlTitle}>лента дня</div>
             {blocks.length >= 2
               ? <button className={s.tlEdit} onClick={() => setEditDay(true)}>✎ править</button>
-              : <div className={s.tlHint}>08:00–20:30</div>}
+              : <div className={s.tlHint}>с 08:00</div>}
           </div>
           <div className={s.tlBar}>
-            {blocks.map((b) => {
-              const start = new Date(b.started_at).getTime()
-              const end   = b.ended_at ? new Date(b.ended_at).getTime() : Date.now()
-              const mins  = Math.max(1, (end - start) / 60_000)
-              return (
-                <div
-                  key={b.id}
-                  className={s.tlSeg}
-                  style={{ flex: mins, background: FOCUS_COLORS[b.focus] }}
-                />
-              )
-            })}
+            {items.map((it, i) => (
+              <div
+                key={i}
+                className={it.type === 'gap' ? s.tlSegGap : s.tlSeg}
+                style={{
+                  flex: Math.max(1, (it.end - it.start) / 60_000),
+                  background: it.type === 'block' ? FOCUS_COLORS[it.block.focus] : undefined,
+                }}
+              />
+            ))}
           </div>
           <div className={s.tlList}>
-            {blocks.map((b) => {
+            {items.map((it, i) => {
+              if (it.type === 'gap') {
+                return (
+                  <button
+                    key={i}
+                    className={s.tlGap}
+                    onClick={() => setFillGap({ start: new Date(it.start), end: new Date(it.end), toNow: it.toNow })}
+                  >
+                    <div className={s.tlGapDot} />
+                    <div className={s.tlGapText}>заполнить пропуск</div>
+                    <div className={s.tlGapDur}>{fmt(new Date(it.start).toISOString())}–{it.toNow ? 'сейчас' : fmt(new Date(it.end).toISOString())}</div>
+                  </button>
+                )
+              }
+              const b = it.block
               const act = ACTIVITIES.find((a) => a.id === b.activity_id)
               return (
-                <button key={b.id} className={s.tlRow} onClick={() => setEditBlock(b)}>
+                <button key={i} className={s.tlRow} onClick={() => setEditBlock(b)}>
                   <div className={s.tlDot} style={{ background: FOCUS_COLORS[b.focus] }} />
                   <div className={s.tlAct}>{act?.label ?? b.activity_id}</div>
                   <div className={s.tlDur}>
@@ -179,21 +234,27 @@ export function Home() {
         </div>
       )}
 
-      {blocks.length === 0 && !loading && (
+      {!showTimeline && !loading && (
         <div className={s.emptyCard}>
-          <div className={s.emptyText}>Пока нет записей на сегодня</div>
+          <div className={s.emptyText}>День ещё впереди</div>
           <div className={s.emptyHint}>Нажми «выбрать» выше или ответь боту</div>
         </div>
       )}
 
       {picking && (
         <ActivityPicker
-          onPick={async (id, focus, startedAt) => {
-            await startActivity(id, focus, startedAt)
-            setPicking(false)
-            load()
-          }}
+          onPick={handlePick}
           onClose={() => setPicking(false)}
+        />
+      )}
+
+      {fillGap && (
+        <ActivityPicker
+          title="что было в это время?"
+          fixedStart={fillGap.start}
+          fixedEnd={fillGap.toNow ? undefined : fillGap.end}
+          onPick={handlePick}
+          onClose={() => setFillGap(null)}
         />
       )}
 
