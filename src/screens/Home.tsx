@@ -4,6 +4,7 @@ import { FOCUSES, ACTIVITIES } from '../activities'
 import { getTodayStats, startActivity, type DayStats, type ActivityBlock } from '../lib/data'
 import { ActivityPicker } from '../components/ActivityPicker'
 import { EditBlock } from '../components/EditBlock'
+import { TimelineEditor } from '../components/TimelineEditor'
 
 const FOCUS_COLORS: Record<string, string> = {
   biz:   'var(--biz)',
@@ -52,6 +53,7 @@ export function Home() {
   const [loading, setLoading] = useState(true)
   const [picking, setPicking] = useState(false)
   const [editBlock, setEditBlock] = useState<ActivityBlock | null>(null)
+  const [editDay, setEditDay] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -142,7 +144,9 @@ export function Home() {
         <div className={s.tlCard}>
           <div className={s.tlHead}>
             <div className={s.tlTitle}>лента дня</div>
-            <div className={s.tlHint}>08:00–20:30</div>
+            {blocks.length >= 2
+              ? <button className={s.tlEdit} onClick={() => setEditDay(true)}>✎ править</button>
+              : <div className={s.tlHint}>08:00–20:30</div>}
           </div>
           <div className={s.tlBar}>
             {blocks.map((b) => {
@@ -198,6 +202,14 @@ export function Home() {
           block={editBlock}
           onDone={() => { setEditBlock(null); load() }}
           onClose={() => setEditBlock(null)}
+        />
+      )}
+
+      {editDay && blocks.length >= 2 && (
+        <TimelineEditor
+          blocks={blocks}
+          onSaved={() => { setEditDay(false); load() }}
+          onClose={() => setEditDay(false)}
         />
       )}
     </div>

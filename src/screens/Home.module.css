@@ -106,6 +106,13 @@
 }
 .tlTitle { font-size: 17px; font-weight: 700; }
 .tlHint { font-size: 12px; color: var(--ink-soft); }
+.tlEdit {
+  font-size: 13px; font-weight: 600;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 20px;
+  padding: 6px 12px;
+}
 .tlBar {
   display: flex; height: 14px; border-radius: 8px; overflow: hidden; gap: 2px;
   margin-bottom: 14px;

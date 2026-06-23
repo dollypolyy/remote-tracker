@@ -1,0 +1,100 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(33, 26, 30, 0.35);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 100;
+  animation: fade 0.18s ease;
+}
+@keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+
+.sheet {
+  width: 100%;
+  max-width: 440px;
+  background: var(--rose-1);
+  border-radius: 30px 30px 0 0;
+  padding: 12px 18px calc(24px + env(safe-area-inset-bottom));
+  animation: rise 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes rise { from { transform: translateY(100%) } to { transform: translateY(0) } }
+
+.grab {
+  width: 40px; height: 5px; border-radius: 3px;
+  background: rgba(33, 26, 30, 0.18);
+  margin: 0 auto 14px;
+}
+.title { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+.hint { font-size: 13px; color: var(--ink-soft); margin: 4px 0 18px; }
+
+.rail {
+  position: relative;
+  margin-left: 64px;       /* место под время слева у границ */
+  touch-action: none;      /* чтобы drag не скроллил страницу */
+}
+
+/* сегмент блока */
+.seg {
+  position: absolute;
+  left: 0; right: 0;
+  display: flex; align-items: center; gap: 12px;
+  padding: 2px 0;
+  overflow: hidden;
+}
+.segBar {
+  width: 10px; align-self: stretch;
+  border-radius: 6px;
+  margin: 3px 0;
+}
+.segText { min-width: 0; }
+.segAct { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.segDur { font-size: 12px; color: var(--ink-soft); }
+
+/* перетаскиваемая граница */
+.handle {
+  position: absolute;
+  left: -64px; right: 0;
+  height: 0;
+  display: flex; align-items: center;
+  transform: translateY(-50%);
+  cursor: grab;
+  touch-action: none;
+}
+.handle:active { cursor: grabbing; }
+.handleTime {
+  width: 52px;
+  font-size: 12px; font-weight: 700;
+  color: var(--ink);
+  text-align: right;
+  padding-right: 8px;
+}
+.dot {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--white);
+  border: 3px solid var(--ink);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  flex-shrink: 0;
+  margin-left: -9px;
+  position: relative; z-index: 2;
+}
+/* пунктир по всей ширине у границы */
+.handle::after {
+  content: '';
+  position: absolute;
+  left: 64px; right: 0; top: 50%;
+  border-top: 1.5px dashed rgba(33, 26, 30, 0.3);
+}
+
+.save {
+  width: 100%;
+  background: var(--ink);
+  color: var(--white);
+  border-radius: var(--radius);
+  padding: 16px;
+  font-size: 16px; font-weight: 700;
+  margin-top: 18px;
+}
