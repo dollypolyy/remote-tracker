@@ -129,12 +129,29 @@ async function saveChatMsg(date: string, role: string, content: string) {
   await db.from('chat_messages').insert({ date, role, content })
 }
 
+async function saveDiaryField(date: string, field: string, text: string) {
+  const valid = ['done', 'achieved', 'not_achieved', 'thoughts', 'goals']
+  if (!valid.includes(field)) return
+  const { data } = await db.from('diary_entries').select('*').eq('date', date).maybeSingle()
+  const existing = ((data as any)?.[field] as string) || ''
+  const updated = existing ? `${existing}\n${text}` : text
+  if (data) {
+    await db.from('diary_entries').update({ [field]: updated }).eq('date', date)
+  } else {
+    await db.from('diary_entries').insert({ date, [field]: updated })
+  }
+}
+
 async function buildSystemPrompt(today: string): Promise<string> {
-  const { data: blocks } = await db
-    .from('activity_blocks')
-    .select('*')
-    .eq('date', today)
-    .order('started_at', { ascending: true })
+  const start7 = new Date()
+  start7.setDate(start7.getDate() - 7)
+  const start7ISO = start7.toISOString().slice(0, 10)
+
+  const [{ data: blocks }, { data: histBlocks }] = await Promise.all([
+    db.from('activity_blocks').select('*').eq('date', today).order('started_at', { ascending: true }),
+    db.from('activity_blocks').select('date, focus, started_at, ended_at').gte('date', start7ISO).lt('date', today),
+  ])
+
   const bArr = (blocks || []) as any[]
   const hours: Record<string, number> = { biz: 0, sport: 0, blog: 0, other: 0 }
   const now = Date.now()
@@ -144,35 +161,110 @@ async function buildSystemPrompt(today: string): Promise<string> {
     if (nextStart && endMs > nextStart) endMs = nextStart
     hours[b.focus] += Math.max(0, (endMs - +new Date(b.started_at)) / 3_600_000)
   })
-  const openBlock = bArr.find((b) => !b.ended_at)
+  const openBlock = bArr.find((b: any) => !b.ended_at)
   const cur = openBlock ? actLabel(openBlock.activity_id) : null
-  const dateLabel = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' })
 
-  return `Ты личный ассистент Даши — помогаешь отслеживать время, поддерживаешь, ведёшь диалог. Сегодня ${dateLabel}.
+  // 7-day history
+  const byDate = new Map<string, Record<string, number>>()
+  for (const b of (histBlocks || []) as any[]) {
+    if (!byDate.has(b.date)) byDate.set(b.date, { biz: 0, sport: 0, blog: 0 })
+    const s = +new Date(b.started_at)
+    const e = b.ended_at ? +new Date(b.ended_at) : s + 1_800_000
+    const h = byDate.get(b.date)!
+    if (b.focus in h) h[b.focus] += Math.max(0, (e - s) / 3_600_000)
+  }
+  const histLines = Array.from(byDate.entries()).slice(-5).map(([date, h]) => {
+    const d = new Date(date).toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', timeZone: 'Europe/Moscow' })
+    const ok = (h.biz >= 6 ? '✅' : '▫️') + (h.sport >= 0.5 ? '✅' : '▫️') + (h.blog >= 2 ? '✅' : '▫️')
+    return `${d}: 💼${h.biz.toFixed(1)} 🏃‍♀️${h.sport.toFixed(1)} 🎬${h.blog.toFixed(1)} ${ok}`
+  })
 
-Данные за день:
-💼 Бизнес: ${hours.biz.toFixed(1)}ч / 6ч ${hours.biz >= 6 ? '✅' : ''}
-🏃‍♀️ Спорт: ${hours.sport.toFixed(1)}ч / 0.5ч ${hours.sport >= 0.5 ? '✅' : ''}
-🎬 Блог: ${hours.blog.toFixed(1)}ч / 2ч ${hours.blog >= 2 ? '✅' : ''}
-${cur ? `Сейчас: ${cur}` : 'Сейчас ничего не отслеживается'}
+  const dateLabel = new Date().toLocaleDateString('ru-RU', {
+    weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Moscow',
+  })
 
-Отвечай по-русски. Будь краткой (2–4 предложения), тёплой, живой. Не перечисляй данные без запроса. Если Даша делится мыслями — слушай и поддерживай. Если спрашивает о своём дне — отвечай по данным выше.`
+  return `Ты — Will, личный AI-коуч Даши. Назван в честь Will Smith — харизматичный, прямой, с юмором, поддерживающий.
+
+Твоя миссия: помочь Даше удерживать фокус на трёх приоритетах:
+💼 Бизнес/AI — минимум 6ч/день
+🏃‍♀️ Спорт/здоровье — минимум 30 мин/день
+🎬 Блог/контент — минимум 2ч/день
+
+Правила:
+— Называй её «Даша», себя — «Will»
+— Короткие ответы (2–4 предложения), если не просят подробнее
+— Живой тон, лёгкий юмор, без занудства
+— Используй конкретные данные о её дне в ответах
+— Когда Даша делится инсайтом, мыслью, рефлексией — вызывай save_diary_thought
+— Замечай паттерны в истории и называй их
+
+Сегодня ${dateLabel}.
+
+📊 Сегодня:
+💼 ${hours.biz.toFixed(1)}ч / 6ч ${hours.biz >= 6 ? '✅' : ''}
+🏃‍♀️ ${hours.sport.toFixed(1)}ч / 0.5ч ${hours.sport >= 0.5 ? '✅' : ''}
+🎬 ${hours.blog.toFixed(1)}ч / 2ч ${hours.blog >= 2 ? '✅' : ''}
+${cur ? `Сейчас: ${cur}` : 'Сейчас не отслеживается'}
+
+📅 Последние дни:
+${histLines.length ? histLines.join('\n') : 'Данных пока нет'}`
+}
+
+const DIARY_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'save_diary_thought',
+    description: 'Сохранить мысль, инсайт или рефлексию Даши в дневник. Вызывай когда она делится чем-то значимым о своём дне, работе, чувствах, планах или уроках.',
+    parameters: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'Текст для сохранения (можно перефразировать для ясности)' },
+        field: {
+          type: 'string',
+          enum: ['done', 'achieved', 'not_achieved', 'thoughts', 'goals'],
+          description: 'done=что сделала, achieved=победы и достижения, not_achieved=что не получилось, thoughts=мысли и уроки, goals=цели на завтра',
+        },
+      },
+      required: ['text', 'field'],
+    },
+  },
 }
 
 async function aiReply(userText: string, today: string, history: { role: string; content: string }[]): Promise<string> {
   const system = await buildSystemPrompt(today)
+  const msgs: any[] = [{ role: 'system', content: system }, ...history, { role: 'user', content: userText }]
+
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'system', content: system }, ...history, { role: 'user', content: userText }],
-      max_tokens: 350,
-      temperature: 0.85,
-    }),
+    body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgs, tools: [DIARY_TOOL], tool_choice: 'auto', max_tokens: 400, temperature: 0.85 }),
   })
   const json = await resp.json()
-  return json.choices?.[0]?.message?.content?.trim() || 'Не смогла ответить 🙁'
+  const msg = json.choices?.[0]?.message
+
+  if (msg?.tool_calls?.length) {
+    const toolResults: any[] = []
+    for (const tc of msg.tool_calls) {
+      if (tc.function.name === 'save_diary_thought') {
+        try {
+          const { field, text } = JSON.parse(tc.function.arguments)
+          await saveDiaryField(today, field, text)
+          toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'saved' })
+        } catch {
+          toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'error' })
+        }
+      }
+    }
+    const resp2 = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [...msgs, msg, ...toolResults], max_tokens: 300, temperature: 0.85 }),
+    })
+    const json2 = await resp2.json()
+    return json2.choices?.[0]?.message?.content?.trim() || '✅ Записала в дневник'
+  }
+
+  return msg?.content?.trim() || 'Не смогла ответить 🙁'
 }
 
 async function confirmStart(chatId: number, actId: string, started: Date) {
