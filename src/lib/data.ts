@@ -160,7 +160,14 @@ export async function insertBlock(activityId: string, focus: FocusKey, start: Da
 export async function updateBlock(
   id: string,
   patch: Partial<Pick<ActivityBlock, 'activity_id' | 'focus' | 'started_at' | 'ended_at'>>,
+  date?: string,
 ): Promise<void> {
+  // если меняется время — разрулить все перекрытия с соседями
+  if (date && patch.started_at) {
+    const startMs = new Date(patch.started_at).getTime()
+    const endMs = patch.ended_at ? new Date(patch.ended_at).getTime() : Date.now()
+    await trimOverlaps(date, startMs, endMs, id)
+  }
   const { error } = await supabase.from('activity_blocks').update(patch).eq('id', id)
   if (error) throw error
 }

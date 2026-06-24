@@ -40,7 +40,7 @@ export function EditBlock({ block, onDone, onClose }: Props) {
       focus,
       started_at: startD.toISOString(),
       ended_at: endISO,
-    })
+    }, block.date)
     onDone()
   }
 
