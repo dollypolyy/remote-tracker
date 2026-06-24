@@ -197,6 +197,13 @@ async function buildSystemPrompt(today: string): Promise<string> {
 — Используй конкретные данные о её дне в ответах
 — Когда Даша делится инсайтом, мыслью, рефлексией — вызывай save_diary_thought
 — Замечай паттерны в истории и называй их
+— Если Даша говорит что начала/делала что-то — вызывай log_activity
+
+Справочник активностей:
+💼 бизнес: поиск(biz_research) планирование(biz_plan) обучение(biz_learn) делаю продукт(biz_build) созвоны(biz_calls) стратегия(biz_strategy)
+🏃‍♀️ спорт: зал(sport_gym) дома(sport_home) прогулка(sport_walk) пробежка(sport_run) танцы(sport_dance) йога(sport_yoga) другое(sport_other)
+🎬 блог: идея(blog_idea) съёмка(blog_film) монтаж(blog_edit) публикация(blog_post)
+🌿 прочее: готовка(other_cook) еда(other_eat) учёба(other_study) быт(other_chores) отдых(other_rest) дорога(other_road) залипание(other_scroll) личное(other_personal)
 
 Сегодня ${dateLabel}.
 
@@ -208,6 +215,53 @@ ${cur ? `Сейчас: ${cur}` : 'Сейчас не отслеживается'}
 
 📅 Последние дни:
 ${histLines.length ? histLines.join('\n') : 'Данных пока нет'}`
+}
+
+async function logActivity(activityId: string, focus: string, startedAt: Date, endedAt?: Date) {
+  const today = new Date().toISOString().slice(0, 10)
+  if (endedAt) {
+    // Ретроактивный блок — закрываем предыдущие открытые, что начались раньше
+    await db.from('activity_blocks')
+      .update({ ended_at: startedAt.toISOString() })
+      .eq('date', today)
+      .is('ended_at', null)
+      .lt('started_at', startedAt.toISOString())
+    await db.from('activity_blocks').insert({
+      date: today,
+      started_at: startedAt.toISOString(),
+      ended_at: endedAt.toISOString(),
+      activity_id: activityId,
+      focus,
+    })
+  } else {
+    await openBlock(activityId, focus, startedAt)
+  }
+}
+
+const LOG_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'log_activity',
+    description: 'Записать активность Даши — что она начала или делала. Вызывай когда она говорит «я начала X в 10:45» или «с 10 до 11 делала Y». Можно вызывать несколько раз для нескольких активностей.',
+    parameters: {
+      type: 'object',
+      properties: {
+        activity_id: {
+          type: 'string',
+          enum: [
+            'biz_research','biz_plan','biz_learn','biz_build','biz_calls','biz_strategy',
+            'sport_gym','sport_home','sport_walk','sport_run','sport_dance','sport_yoga','sport_other',
+            'blog_idea','blog_film','blog_edit','blog_post',
+            'other_cook','other_eat','other_study','other_chores','other_rest','other_road','other_scroll','other_personal',
+          ],
+          description: 'ID активности',
+        },
+        started_at: { type: 'string', description: 'Время начала HH:MM (если не указано — сейчас)' },
+        ended_at: { type: 'string', description: 'Время конца HH:MM — только если активность уже завершена' },
+      },
+      required: ['activity_id'],
+    },
+  },
 }
 
 const DIARY_TOOL = {
@@ -237,7 +291,7 @@ async function aiReply(userText: string, today: string, history: { role: string;
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgs, tools: [DIARY_TOOL], tool_choice: 'auto', max_tokens: 400, temperature: 0.85 }),
+    body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgs, tools: [LOG_TOOL, DIARY_TOOL], tool_choice: 'auto', max_tokens: 400, temperature: 0.85 }),
   })
   const json = await resp.json()
   const msg = json.choices?.[0]?.message
@@ -245,14 +299,20 @@ async function aiReply(userText: string, today: string, history: { role: string;
   if (msg?.tool_calls?.length) {
     const toolResults: any[] = []
     for (const tc of msg.tool_calls) {
-      if (tc.function.name === 'save_diary_thought') {
-        try {
-          const { field, text } = JSON.parse(tc.function.arguments)
-          await saveDiaryField(today, field, text)
+      try {
+        const args = JSON.parse(tc.function.arguments)
+        if (tc.function.name === 'log_activity') {
+          const focus = ACT_TO_FOCUS[args.activity_id] || 'other'
+          const startedAt = args.started_at ? (parseMskTime(args.started_at) ?? new Date()) : new Date()
+          const endedAt = args.ended_at ? parseMskTime(args.ended_at) ?? undefined : undefined
+          await logActivity(args.activity_id, focus, startedAt, endedAt)
+          toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'logged' })
+        } else if (tc.function.name === 'save_diary_thought') {
+          await saveDiaryField(today, args.field, args.text)
           toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'saved' })
-        } catch {
-          toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'error' })
         }
+      } catch {
+        toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'error' })
       }
     }
     const resp2 = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -261,7 +321,7 @@ async function aiReply(userText: string, today: string, history: { role: string;
       body: JSON.stringify({ model: 'gpt-4o-mini', messages: [...msgs, msg, ...toolResults], max_tokens: 300, temperature: 0.85 }),
     })
     const json2 = await resp2.json()
-    return json2.choices?.[0]?.message?.content?.trim() || '✅ Записала в дневник'
+    return json2.choices?.[0]?.message?.content?.trim() || '✅ Готово'
   }
 
   return msg?.content?.trim() || 'Не смогла ответить 🙁'

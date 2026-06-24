@@ -16,13 +16,20 @@ export default async function handler(req: any, res: any) {
   const today = now.toISOString().slice(0, 10)
   const { data } = await db
     .from('activity_blocks')
-    .select('activity_id')
+    .select('activity_id, started_at')
     .eq('date', today)
-    .is('ended_at', null)
     .order('started_at', { ascending: false })
     .limit(1)
 
-  const currentActId: string | null = data?.[0]?.activity_id ?? null
+  // Пропустить опрос, если активность залогирована менее 28 минут назад
+  if (data?.[0]?.started_at) {
+    const minsAgo = (Date.now() - +new Date(data[0].started_at)) / 60_000
+    if (minsAgo < 28) {
+      return res.status(200).json({ skipped: 'recent activity', minsAgo: minsAgo.toFixed(1) })
+    }
+  }
+
+  const currentActId: string | null = (data?.[0] as any)?.activity_id ?? null
   const timeStr = now.toLocaleTimeString('ru-RU', {
     hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow',
   })
