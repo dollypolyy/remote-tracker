@@ -38,6 +38,8 @@ export function Stats({ onBack }: { onBack: () => void }) {
     goal: FOCUSES[k].goalH,
   }))
 
+  const fmt = (n: number) => n.toFixed(1).replace('.', ',')
+
   const moods = rows.filter((d) => d.mood != null)
   const avgMood = moods.length ? moods.reduce((a, d) => a + (d.mood || 0), 0) / moods.length : null
 
@@ -59,8 +61,8 @@ export function Stats({ onBack }: { onBack: () => void }) {
           {/* сводка */}
           <div className={s.cards}>
             <div className={s.card}>
-              <div className={s.cardBig}>{avgFocus.toFixed(1)}ч</div>
-              <div className={s.cardLabel}>в среднем в фокусе / день</div>
+              <div className={s.cardBig}>{fmt(avgFocus)}ч</div>
+              <div className={s.cardLabel}>в фокусе / день</div>
             </div>
             <div className={s.card}>
               <div className={s.cardBig}>{daysMet}<span className={s.cardSm}>/{n}</span></div>
@@ -102,7 +104,7 @@ export function Stats({ onBack }: { onBack: () => void }) {
               <div key={f.key} className={s.fRow}>
                 <div className={s.fTop}>
                   <span className={s.fName}>{f.name}</span>
-                  <span className={s.fVal}>{f.avg.toFixed(1)}ч <span className={s.fGoal}>/ {f.goal}ч</span></span>
+                  <span className={s.fVal}>{fmt(f.avg)}ч <span className={s.fGoal}>/ {f.goal}ч</span></span>
                 </div>
                 <div className={s.fTrack}>
                   <div className={s.fFill} style={{
@@ -112,7 +114,7 @@ export function Stats({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
             ))}
-            <div className={s.otherLine}>вне фокуса в среднем {(sumOther / n).toFixed(1)}ч / день</div>
+            <div className={s.otherLine}>вне фокуса в среднем {fmt(sumOther / n)}ч / день</div>
           </div>
 
           {/* настроение */}
