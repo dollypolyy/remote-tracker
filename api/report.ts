@@ -3,6 +3,7 @@ import { tg, CHAT_ID, FOCUS_LABELS, SUPABASE_URL, SUPABASE_ANON_KEY } from './_b
 
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 const APP_URL = 'https://remote-tracker-gamma.vercel.app'
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || ''
 const GOALS: Record<string, number> = { biz: 6, sport: 0.5, blog: 2 }
 
 export default async function handler(_req: any, res: any) {
@@ -34,23 +35,56 @@ export default async function handler(_req: any, res: any) {
   }
 
   const focusH = hours.biz + hours.sport + hours.blog
-  const priorityKey = Object.keys(hours).reduce((a, b) => (hours[b] > hours[a] ? b : a), 'biz')
-
   const dateLabel = new Date().toLocaleDateString('ru-RU', {
     day: 'numeric', month: 'long', timeZone: 'Europe/Moscow',
   })
 
-  const text =
+  const statsBlock =
     `🌙 Итоги дня · ${dateLabel}\n\n` +
     `${fmt('biz')}\n${fmt('sport')}\n${fmt('blog')}\n` +
-    `🌿 вне фокуса — ${hours.other.toFixed(1)} ч\n\n` +
-    `В фокусе сегодня: ${focusH.toFixed(1)} ч\n` +
-    `Главное: ${FOCUS_LABELS[priorityKey]}\n\n` +
-    `✍️ Запиши дневник за сегодня — как прошёл день, настроение, цели на завтра.`
+    `🌿 прочее — ${hours.other.toFixed(1)} ч\n\n` +
+    `В фокусе: ${focusH.toFixed(1)} ч`
+
+  // Личное напутствие от Will через GPT
+  let willMessage = ''
+  if (OPENAI_API_KEY) {
+    const metGoals = Object.entries(GOALS).filter(([k, g]) => hours[k] >= g).map(([k]) => FOCUS_LABELS[k])
+    const missedGoals = Object.entries(GOALS).filter(([k, g]) => hours[k] < g)
+      .map(([k, g]) => `${FOCUS_LABELS[k]}: ${hours[k].toFixed(1)}ч из ${g}ч`)
+
+    const prompt = `Ты Will — поддерживающий друг-коуч Даши. Пишешь вечернее напутствие.
+Правила стиля: никогда «ё», неформально, каждая мысль с новой строки, максимум 4 строки.
+
+Данные дня:
+Выполнено: ${metGoals.length ? metGoals.join(', ') : 'ничего'}
+Не выполнено: ${missedGoals.length ? missedGoals.join(', ') : 'всё сделала!'}
+Итого в фокусе: ${focusH.toFixed(1)}ч
+
+Напиши:
+1. Одну фразу — что было круто (или общий итог если все плохо — всё равно найди что-то позитивное)
+2. Одну конкретную рекомендацию на завтра
+3. Короткое закрытие — «спокойной ночи» по-дружески
+
+По-русски, как сообщение другу.`
+
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 200,
+        temperature: 0.9,
+      }),
+    })
+    const json = await resp.json()
+    const generated = json.choices?.[0]?.message?.content?.trim()
+    if (generated) willMessage = `\n\n${generated}`
+  }
 
   await tg('sendMessage', {
     chat_id: CHAT_ID,
-    text,
+    text: statsBlock + willMessage,
     reply_markup: {
       inline_keyboard: [[{ text: '✍️ открыть дневник', url: APP_URL }]],
     },
