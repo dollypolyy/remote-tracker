@@ -6,67 +6,96 @@
 }
 .loading { padding: 60px 0; text-align: center; color: var(--ink-soft); }
 
-.header { margin-bottom: 18px; }
+.header { margin-bottom: 14px; }
 .back {
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 20px;
-  padding: 8px 16px 8px 12px;
-  font-size: 14px; font-weight: 700; color: var(--ink);
-  margin-bottom: 14px;
+  background: rgba(255,255,255,0.5); border-radius: 20px;
+  padding: 8px 16px 8px 12px; font-size: 14px; font-weight: 700; color: var(--ink);
+  margin-bottom: 12px;
 }
-.title { font-size: 40px; font-weight: 800; letter-spacing: -1.5px; line-height: 0.95; margin-bottom: 14px; }
-.tabs { display: flex; gap: 8px; }
+.title { font-size: 36px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; margin-bottom: 14px; }
+
+/* period tabs */
+.periodRow { display: flex; gap: 8px; margin-bottom: 12px; }
 .tab {
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 20px; padding: 9px 18px;
-  font-size: 14px; font-weight: 700; color: var(--ink-soft);
+  background: rgba(255,255,255,0.5); border-radius: 20px;
+  padding: 9px 18px; font-size: 14px; font-weight: 700; color: var(--ink-soft);
 }
 .tabOn { background: var(--ink); color: var(--white); }
 
+/* custom date range */
+.customRow {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--white); border-radius: var(--radius-sm);
+  padding: 12px 16px; margin-bottom: 12px;
+}
+.dateField { display: flex; align-items: center; gap: 6px; flex: 1; }
+.dateLbl { font-size: 12px; color: var(--ink-soft); font-weight: 600; white-space: nowrap; }
+.dateIn {
+  flex: 1; font-size: 14px; font-weight: 700; color: var(--ink);
+  background: transparent; border: none; outline: none;
+  min-width: 0;
+}
+.dateSep { color: var(--ink-soft); font-size: 16px; }
+
 /* summary cards */
-.cards { display: flex; gap: 10px; margin-bottom: 16px; }
+.cards { display: flex; gap: 8px; margin-bottom: 14px; }
 .card {
   flex: 1; background: var(--white); border-radius: var(--radius-sm);
-  padding: 18px 16px;
+  padding: 16px 12px;
 }
-.cardBig { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
-.cardSm { font-size: 15px; color: var(--ink-soft); }
-.cardLabel { font-size: 12px; color: var(--ink-soft); margin-top: 6px; white-space: nowrap; }
+.cardBig { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+.cardSm { font-size: 14px; color: var(--ink-soft); }
+.cardLabel { font-size: 11px; color: var(--ink-soft); margin-top: 5px; white-space: nowrap; }
 
+/* blocks */
 .block {
-  background: var(--white);
-  border-radius: var(--radius);
-  padding: 18px 20px;
-  margin-bottom: 16px;
+  background: var(--white); border-radius: var(--radius);
+  padding: 18px 20px; margin-bottom: 14px;
 }
-.blockTitle { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.blockTitle { font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+/* insights */
+.insights { display: flex; flex-direction: column; gap: 8px; }
+.insight {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+}
+.good { background: rgba(80,180,100,0.08); }
+.warn { background: rgba(240,140,60,0.1); }
+.info { background: rgba(100,140,220,0.08); }
+.insIcon { font-size: 16px; flex-shrink: 0; line-height: 1.4; }
+.insText { font-size: 13px; line-height: 1.45; color: var(--ink); }
 
 /* daily bars */
-.bars { display: flex; align-items: flex-end; gap: 4px; height: 130px; }
-.barCol { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
-.barTrack { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.bars { display: flex; align-items: flex-end; gap: 3px; }
+.barCol { flex: 1; display: flex; flex-direction: column; align-items: center; }
+.barNum {
+  font-size: 8px; font-weight: 800; color: var(--ink-soft);
+  height: 14px; display: flex; align-items: center; justify-content: center;
+  letter-spacing: -0.2px;
+}
+.barTrack { width: 100%; height: 100px; display: flex; align-items: flex-end; }
 .barStack {
-  width: 100%; min-height: 3px;
-  border-radius: 5px; overflow: hidden;
+  width: 100%; min-height: 3px; border-radius: 4px; overflow: hidden;
   display: flex; flex-direction: column-reverse;
 }
-.barLbl { font-size: 10px; color: var(--ink-soft); margin-top: 6px; text-transform: lowercase; }
+.barLbl { font-size: 9px; color: var(--ink-soft); margin-top: 5px; text-transform: lowercase; }
 
 /* focus averages */
-.fRow { margin-bottom: 14px; }
-.fTop { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.fRow { margin-bottom: 13px; }
+.fTop { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
 .fName { font-size: 15px; font-weight: 700; }
 .fVal { font-size: 14px; font-weight: 700; }
 .fGoal { color: var(--ink-soft); font-weight: 500; }
-.fTrack { height: 9px; border-radius: 5px; background: rgba(0, 0, 0, 0.05); overflow: hidden; }
+.fTrack { height: 8px; border-radius: 5px; background: rgba(0,0,0,0.05); overflow: hidden; }
 .fFill { height: 100%; border-radius: 5px; }
-.otherLine { font-size: 13px; color: var(--ink-soft); margin-top: 4px; }
+.activeLine { font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
 
 /* mood */
 .moodAvg { font-size: 20px; }
 .moodRow { display: flex; gap: 4px; }
 .moodCell { flex: 1; text-align: center; }
 .moodEmoji { font-size: 20px; }
-.moodLbl { font-size: 10px; color: var(--ink-soft); margin-top: 4px; }
+.moodLbl { font-size: 9px; color: var(--ink-soft); margin-top: 4px; }
 
 .pad { height: 40px; }

@@ -194,14 +194,10 @@ function emptyFocus(): Record<FocusKey, number> {
   return { biz: 0, sport: 0, blog: 0, other: 0 }
 }
 
-export async function getRangeStats(days: number): Promise<DayAgg[]> {
-  const start = new Date()
-  start.setDate(start.getDate() - (days - 1))
-  const startISO = start.toISOString().slice(0, 10)
-
+export async function getRangeStats(startISO: string, endISO: string): Promise<DayAgg[]> {
   const [{ data: blockData }, { data: diaryData }] = await Promise.all([
-    supabase.from('activity_blocks').select('*').gte('date', startISO).order('started_at', { ascending: true }),
-    supabase.from('diary_entries').select('date, mood').gte('date', startISO),
+    supabase.from('activity_blocks').select('*').gte('date', startISO).lte('date', endISO).order('started_at', { ascending: true }),
+    supabase.from('diary_entries').select('date, mood').gte('date', startISO).lte('date', endISO),
   ])
 
   const blocks = (blockData || []) as ActivityBlock[]
@@ -210,7 +206,6 @@ export async function getRangeStats(days: number): Promise<DayAgg[]> {
     moodByDate.set(d.date, d.mood)
   }
 
-  // группируем блоки по дате
   const byDate = new Map<string, ActivityBlock[]>()
   for (const b of blocks) {
     if (!byDate.has(b.date)) byDate.set(b.date, [])
@@ -219,14 +214,14 @@ export async function getRangeStats(days: number): Promise<DayAgg[]> {
 
   const now = Date.now()
   const result: DayAgg[] = []
-  for (let i = 0; i < days; i++) {
-    const d = new Date(start)
-    d.setDate(start.getDate() + i)
-    const date = d.toISOString().slice(0, 10)
+  // итерируем каждый день от start до end включительно
+  const cur = new Date(startISO + 'T12:00:00Z')
+  const end = new Date(endISO + 'T12:00:00Z')
+  while (cur <= end) {
+    const date = cur.toISOString().slice(0, 10)
     const dayBlocks = byDate.get(date) ?? []
     const hoursByFocus = emptyFocus()
 
-    // нормализуем (подрезаем наложения внутри дня) и считаем
     dayBlocks.forEach((b, idx) => {
       const nextStart = dayBlocks[idx + 1] ? +new Date(dayBlocks[idx + 1].started_at) : null
       let endMs = b.ended_at ? +new Date(b.ended_at) : (nextStart ?? now)
@@ -237,6 +232,7 @@ export async function getRangeStats(days: number): Promise<DayAgg[]> {
 
     const focusH = hoursByFocus.biz + hoursByFocus.sport + hoursByFocus.blog
     result.push({ date, hoursByFocus, focusH, otherH: hoursByFocus.other, mood: moodByDate.get(date) ?? null })
+    cur.setDate(cur.getDate() + 1)
   }
   return result
 }
