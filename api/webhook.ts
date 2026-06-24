@@ -91,24 +91,28 @@ async function saveReflection(date: string, focus: string, text: string) {
 
 // ── AI-диалог (голосовые сообщения) ──────────────────────────
 
-async function transcribeVoice(fileId: string): Promise<string> {
+async function transcribeVoice(fileId: string): Promise<{ text: string; error?: string }> {
   const info = await tg('getFile', { file_id: fileId })
   const filePath = info.result?.file_path
-  if (!filePath) return ''
+  if (!filePath) return { text: '', error: 'getFile failed: ' + JSON.stringify(info) }
+
   const audioResp = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`)
-  if (!audioResp.ok) return ''
+  if (!audioResp.ok) return { text: '', error: `audio download ${audioResp.status}` }
+
   const audioBuffer = await audioResp.arrayBuffer()
   const form = new FormData()
   form.append('file', new Blob([audioBuffer], { type: 'audio/ogg' }), 'voice.ogg')
   form.append('model', 'whisper-1')
   form.append('language', 'ru')
+
   const resp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
     body: form,
   })
   const data = await resp.json()
-  return data.text?.trim() || ''
+  if (!data.text) return { text: '', error: `whisper error: ${JSON.stringify(data)}` }
+  return { text: data.text.trim() }
 }
 
 async function getChatHistory(date: string) {
@@ -194,9 +198,9 @@ async function handleUpdate(update: any) {
       return
     }
     await tg('sendChatAction', { chat_id: chatId, action: 'typing' })
-    const transcript = await transcribeVoice(update.message.voice.file_id)
+    const { text: transcript, error: transcribeError } = await transcribeVoice(update.message.voice.file_id)
     if (!transcript) {
-      await tg('sendMessage', { chat_id: chatId, text: 'Не удалось распознать голосовое 🙁' })
+      await tg('sendMessage', { chat_id: chatId, text: `Не удалось распознать голосовое 🙁\n\`${transcribeError}\`` })
       return
     }
     const history = await getChatHistory(today)
