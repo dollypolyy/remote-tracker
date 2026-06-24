@@ -79,6 +79,7 @@ export function focusKeyboard(currentActId?: string | null) {
   if (currentActId) {
     rows.push([{ text: `✅ продолжаю — ${actLabel(currentActId)}`, callback_data: 'cont' }])
   }
+  rows.push([{ text: '📱 открыть приложение', url: 'https://t.me/remote_tracker_dp_bot/tracker' }])
   return { inline_keyboard: rows }
 }
 
