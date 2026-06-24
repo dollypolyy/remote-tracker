@@ -95,6 +95,31 @@ async function saveReflection(date: string, focus: string, text: string) {
   }
 }
 
+// Авто-категоризация мысли и сохранение в reflections с нужным тегом сферы
+async function handleThought(chatId: number, text: string, today: string) {
+  let focus = 'other'
+  if (OPENAI_API_KEY) {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{
+          role: 'user',
+          content: `К какой сфере относится мысль? biz=бизнес/AI/продукт/деньги/стратегия, sport=спорт/здоровье/тело/тренировки, blog=блог/съёмка/контент/TikTok/YouTube/монтаж, other=всё остальное. Ответь одним словом без объяснений.\n\n"${text}"`,
+        }],
+        max_tokens: 10,
+      }),
+    })
+    const json = await resp.json()
+    const raw = json.choices?.[0]?.message?.content?.trim().toLowerCase() || ''
+    if (['biz', 'sport', 'blog', 'other'].includes(raw)) focus = raw
+  }
+  await saveReflection(today, focus, text)
+  const labels: Record<string, string> = { biz: '💼 бизнес', sport: '🏃‍♀️ спорт', blog: '🎬 блог', other: '🌿 прочее' }
+  await tg('sendMessage', { chat_id: chatId, text: `✍️ Записала → ${labels[focus]}` })
+}
+
 // ── AI-диалог (голосовые сообщения) ──────────────────────────
 
 async function transcribeVoice(fileId: string): Promise<{ text: string; error?: string }> {
@@ -153,9 +178,10 @@ async function buildSystemPrompt(today: string): Promise<string> {
   start7.setDate(start7.getDate() - 7)
   const start7ISO = start7.toISOString().slice(0, 10)
 
-  const [{ data: blocks }, { data: histBlocks }] = await Promise.all([
+  const [{ data: blocks }, { data: histBlocks }, { data: recentDiaries }] = await Promise.all([
     db.from('activity_blocks').select('*').eq('date', today).order('started_at', { ascending: true }),
     db.from('activity_blocks').select('date, focus, started_at, ended_at').gte('date', start7ISO).lt('date', today),
+    db.from('diary_entries').select('date, reflections').gte('date', start7ISO).not('reflections', 'is', null),
   ])
 
   const bArr = (blocks || []) as any[]
@@ -191,6 +217,17 @@ async function buildSystemPrompt(today: string): Promise<string> {
     const h = byDate.get(b.date)!
     if (b.focus in h) h[b.focus] += Math.max(0, (e - s) / 3_600_000)
   }
+  // Рефлексии за 7 дней — для контекста Will
+  const FOCUS_NAMES: Record<string, string> = { biz: 'бизнес', sport: 'спорт', blog: 'блог', other: 'прочее' }
+  const reflLines: string[] = []
+  for (const entry of (recentDiaries || []) as any[]) {
+    const refls = (entry.reflections || []) as { focus: string; text: string; time: string }[]
+    const d = new Date(entry.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', timeZone: 'Europe/Moscow' })
+    for (const r of refls) {
+      reflLines.push(`  ${d} [${FOCUS_NAMES[r.focus] || r.focus}] «${r.text.slice(0, 120)}»`)
+    }
+  }
+
   const histLines = Array.from(byDate.entries()).slice(-5).map(([date, h]) => {
     const d = new Date(date).toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', timeZone: 'Europe/Moscow' })
     const ok = (h.biz >= 6 ? '✅' : '▫️') + (h.sport >= 0.5 ? '✅' : '▫️') + (h.blog >= 2 ? '✅' : '▫️')
@@ -245,6 +282,12 @@ async function buildSystemPrompt(today: string): Promise<string> {
 5. Если «всё ок» / «нет» / «всё» / «всё хорошо» → вызови save_diary_thought для любых добавлений (если были), потом ответь прощальным словом: «Спокойной ночи, Даша 🌙» + одна короткая вдохновляющая фраза на завтра — живая, не банальная
 6. Если добавляет что-то — сохрани в нужное поле, повтори шаг 4
 
+━━━ МЫСЛИ (кнопка ✍️) ━━━
+Даша сохраняет произвольные мысли через кнопку ✍️ — система авто-тегирует их по сфере.
+Когда Даша просит «покажи мысли по блогу» / «что я думала о бизнесе» / «рефлексии о спорте за неделю»:
+— Загляни в раздел «✍️ Мысли» ниже, отфильтруй по нужной сфере
+— Выдай коротко и структурированно: «[дата] → "мысль"», по одной на строку, без лишних предисловий
+
 ━━━ РЕФЛЕКСИЯ ПОСЛЕ БЛОКОВ ━━━
 Когда Даша закрывает блок бизнес/спорт/блог и переходит на другую активность — система автоматически запрашивает рефлексию. Когда она отвечает на этот запрос — вызывай save_diary_thought(field=«done» или «achieved», text=её ответ).
 
@@ -269,7 +312,10 @@ ${cur ? `Сейчас: ${cur}` : 'Сейчас не отслеживается'}
 ${timelineSummary}
 
 📅 Последние дни:
-${histLines.length ? histLines.join('\n') : 'Данных пока нет'}`
+${histLines.length ? histLines.join('\n') : 'Данных пока нет'}
+
+✍️ Мысли (7 дней):
+${reflLines.length ? reflLines.join('\n') : '  (пока нет)'}`
 }
 
 async function logActivity(activityId: string, focus: string, startedAt: Date, endedAt?: Date) {
@@ -455,6 +501,12 @@ async function handleUpdate(update: any) {
       await tg('sendMessage', { chat_id: chatId, text: `Не удалось распознать голосовое 🙁\n\`${transcribeError}\`` })
       return
     }
+    // Если это ответ на #thought — сохранить как мысль, не гнать через AI
+    const voiceReplyText: string = update.message.reply_to_message?.text || ''
+    if (voiceReplyText.includes('#thought')) {
+      await handleThought(chatId, transcript, today)
+      return
+    }
     const history = await getChatHistory(today)
     await saveChatMsg(today, 'user', transcript)
     const reply = await aiReply(transcript, today, history)
@@ -553,6 +605,21 @@ ${flag(hours.blog, 2)} 🎬 блог — ${fmt(hours.blog)} / 2 ч
         text: '📱 Открываю трекер',
         reply_markup: { inline_keyboard: [[{ text: 'открыть приложение', url: 'https://t.me/remote_tracker_dp_bot/tracker' }]] },
       })
+      return
+    }
+
+    if (text === '✍️ мысль') {
+      await tg('sendMessage', {
+        chat_id: chatId,
+        text: 'Говори или пиши — запишу всё 🎙\n#thought',
+        reply_markup: { force_reply: true, input_field_placeholder: 'напиши мысль…' },
+      })
+      return
+    }
+
+    // ответ на запрос мысли/рефлексии — в тексте зашит #thought
+    if (replyText.includes('#thought')) {
+      await handleThought(chatId, text, today)
       return
     }
 

@@ -108,8 +108,8 @@ export function timeKeyboard(actId: string) {
 export function mainMenuKeyboard() {
   return {
     keyboard: [
-      [{ text: '📝 новая активность' }],
-      [{ text: '📊 статистика' }, { text: '📱 приложение' }],
+      [{ text: '📝 новая активность' }, { text: '✍️ мысль' }],
+      [{ text: '📊 статистика' },       { text: '📱 приложение' }],
     ],
     resize_keyboard: true,
     is_persistent: true,
