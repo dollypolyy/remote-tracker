@@ -11,6 +11,18 @@ export default async function handler(_req: any, res: any) {
   yesterday.setDate(yesterday.getDate() - 1)
   const yISO = yesterday.toISOString().slice(0, 10)
 
+  const today = new Date().toISOString().slice(0, 10)
+
+  // Пропустить если она уже начала день (есть блоки сегодня)
+  const { data: todayBlocks } = await db
+    .from('activity_blocks')
+    .select('id')
+    .eq('date', today)
+    .limit(1)
+  if (todayBlocks && todayBlocks.length > 0) {
+    return res.status(200).json({ skipped: 'already active today' })
+  }
+
   const { data: yBlocks } = await db
     .from('activity_blocks')
     .select('*')
