@@ -104,6 +104,18 @@ export function timeKeyboard(actId: string) {
   }
 }
 
+// Постоянная Reply-клавиатура — всегда видна под полем ввода
+export function mainMenuKeyboard() {
+  return {
+    keyboard: [
+      [{ text: '📝 новая активность' }],
+      [{ text: '📊 статистика' }, { text: '📱 приложение' }],
+    ],
+    resize_keyboard: true,
+    is_persistent: true,
+  }
+}
+
 export function activityKeyboard(focus: string) {
   const acts = ACTS_BY_FOCUS[focus] || []
   const rows: { text: string; callback_data: string }[][] = []

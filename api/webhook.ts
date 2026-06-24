@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import {
-  tg, actLabel, activityKeyboard, focusKeyboard, timeKeyboard,
+  tg, actLabel, activityKeyboard, focusKeyboard, timeKeyboard, mainMenuKeyboard,
   ACT_TO_FOCUS, FOCUS_LABELS, SUPABASE_URL, SUPABASE_ANON_KEY, BOT_TOKEN,
 } from './_bot.js'
 
@@ -469,7 +469,7 @@ async function handleUpdate(update: any) {
     const text: string = update.message.text || ''
     const replyText: string = update.message.reply_to_message?.text || ''
 
-    // /start — устанавливает кнопку меню и приветствует
+    // /start — устанавливает кнопку меню, показывает Reply-клавиатуру
     if (text === '/start' || text.startsWith('/start ')) {
       await tg('setChatMenuButton', {
         chat_id: chatId,
@@ -477,8 +477,18 @@ async function handleUpdate(update: any) {
       })
       await tg('sendMessage', {
         chat_id: chatId,
-        text: 'Привет! Кнопка «Трекер» теперь всегда рядом с полем ввода — нажимай в любой момент.',
-        reply_markup: { inline_keyboard: [[{ text: '📱 открыть приложение', url: 'https://t.me/remote_tracker_dp_bot/tracker' }]] },
+        text: 'Привет! Меню внизу — всегда под рукой 👇',
+        reply_markup: mainMenuKeyboard(),
+      })
+      return
+    }
+
+    // /menu — восстановить клавиатуру если пропала
+    if (text === '/menu') {
+      await tg('sendMessage', {
+        chat_id: chatId,
+        text: '📋 Меню восстановлено',
+        reply_markup: mainMenuKeyboard(),
       })
       return
     }
@@ -488,6 +498,59 @@ async function handleUpdate(update: any) {
       await tg('sendMessage', {
         chat_id: chatId,
         text: '📱',
+        reply_markup: { inline_keyboard: [[{ text: 'открыть приложение', url: 'https://t.me/remote_tracker_dp_bot/tracker' }]] },
+      })
+      return
+    }
+
+    // ── кнопки постоянного меню ──
+
+    if (text === '📝 новая активность') {
+      const open = await getOpenBlock(today)
+      await tg('sendMessage', {
+        chat_id: chatId,
+        text: '⏰ Что делаешь?',
+        reply_markup: focusKeyboard(open?.activity_id),
+      })
+      return
+    }
+
+    if (text === '📊 статистика') {
+      // быстрая сводка: сегодня + эта неделя
+      const { data: todayBlocks } = await db
+        .from('activity_blocks').select('*').eq('date', today).order('started_at', { ascending: true })
+      const bArr = (todayBlocks || []) as any[]
+      const hours: Record<string, number> = { biz: 0, sport: 0, blog: 0, other: 0 }
+      const nowMs = Date.now()
+      bArr.forEach((b, i) => {
+        const nextStart = bArr[i + 1] ? +new Date(bArr[i + 1].started_at) : null
+        let endMs = b.ended_at ? +new Date(b.ended_at) : (nextStart ?? nowMs)
+        if (nextStart && endMs > nextStart) endMs = nextStart
+        hours[b.focus] += Math.max(0, (endMs - +new Date(b.started_at)) / 3_600_000)
+      })
+      const focusH = hours.biz + hours.sport + hours.blog
+      const fmt = (n: number) => n.toFixed(1).replace('.', ',')
+      const flag = (h: number, goal: number) => h >= goal ? '✅' : '▫️'
+      const statsText = `📊 Сегодня · ${new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' })}
+
+${flag(hours.biz, 6)} 💼 бизнес — ${fmt(hours.biz)} / 6 ч
+${flag(hours.sport, 0.5)} 🏃‍♀️ спорт — ${fmt(hours.sport)} / 0,5 ч
+${flag(hours.blog, 2)} 🎬 блог — ${fmt(hours.blog)} / 2 ч
+🌿 прочее — ${fmt(hours.other)} ч
+
+В фокусе: ${fmt(focusH)} ч`
+      await tg('sendMessage', {
+        chat_id: chatId,
+        text: statsText,
+        reply_markup: { inline_keyboard: [[{ text: '📈 подробная статистика', url: 'https://t.me/remote_tracker_dp_bot/tracker' }]] },
+      })
+      return
+    }
+
+    if (text === '📱 приложение') {
+      await tg('sendMessage', {
+        chat_id: chatId,
+        text: '📱 Открываю трекер',
         reply_markup: { inline_keyboard: [[{ text: 'открыть приложение', url: 'https://t.me/remote_tracker_dp_bot/tracker' }]] },
       })
       return
