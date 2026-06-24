@@ -1,10 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import {
   tg, actLabel, activityKeyboard, focusKeyboard, timeKeyboard,
-  ACT_TO_FOCUS, FOCUS_LABELS, SUPABASE_URL, SUPABASE_ANON_KEY,
+  ACT_TO_FOCUS, FOCUS_LABELS, SUPABASE_URL, SUPABASE_ANON_KEY, BOT_TOKEN,
 } from './_bot.js'
 
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || ''
 
 function mskTime(d: Date): string {
   return d.toLocaleTimeString('ru-RU', {
@@ -88,6 +89,88 @@ async function saveReflection(date: string, focus: string, text: string) {
   }
 }
 
+// ── AI-диалог (голосовые сообщения) ──────────────────────────
+
+async function transcribeVoice(fileId: string): Promise<string> {
+  const info = await tg('getFile', { file_id: fileId })
+  const filePath = info.result?.file_path
+  if (!filePath) return ''
+  const audioResp = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`)
+  if (!audioResp.ok) return ''
+  const audioBuffer = await audioResp.arrayBuffer()
+  const form = new FormData()
+  form.append('file', new Blob([audioBuffer], { type: 'audio/ogg' }), 'voice.ogg')
+  form.append('model', 'whisper-1')
+  form.append('language', 'ru')
+  const resp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+    body: form,
+  })
+  const data = await resp.json()
+  return data.text?.trim() || ''
+}
+
+async function getChatHistory(date: string) {
+  const { data } = await db
+    .from('chat_messages')
+    .select('role, content')
+    .eq('date', date)
+    .order('created_at', { ascending: true })
+    .limit(20)
+  return (data || []) as { role: string; content: string }[]
+}
+
+async function saveChatMsg(date: string, role: string, content: string) {
+  await db.from('chat_messages').insert({ date, role, content })
+}
+
+async function buildSystemPrompt(today: string): Promise<string> {
+  const { data: blocks } = await db
+    .from('activity_blocks')
+    .select('*')
+    .eq('date', today)
+    .order('started_at', { ascending: true })
+  const bArr = (blocks || []) as any[]
+  const hours: Record<string, number> = { biz: 0, sport: 0, blog: 0, other: 0 }
+  const now = Date.now()
+  bArr.forEach((b, i) => {
+    const nextStart = bArr[i + 1] ? +new Date(bArr[i + 1].started_at) : null
+    let endMs = b.ended_at ? +new Date(b.ended_at) : (nextStart ?? now)
+    if (nextStart && endMs > nextStart) endMs = nextStart
+    hours[b.focus] += Math.max(0, (endMs - +new Date(b.started_at)) / 3_600_000)
+  })
+  const openBlock = bArr.find((b) => !b.ended_at)
+  const cur = openBlock ? actLabel(openBlock.activity_id) : null
+  const dateLabel = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' })
+
+  return `Ты личный ассистент Даши — помогаешь отслеживать время, поддерживаешь, ведёшь диалог. Сегодня ${dateLabel}.
+
+Данные за день:
+💼 Бизнес: ${hours.biz.toFixed(1)}ч / 6ч ${hours.biz >= 6 ? '✅' : ''}
+🏃‍♀️ Спорт: ${hours.sport.toFixed(1)}ч / 0.5ч ${hours.sport >= 0.5 ? '✅' : ''}
+🎬 Блог: ${hours.blog.toFixed(1)}ч / 2ч ${hours.blog >= 2 ? '✅' : ''}
+${cur ? `Сейчас: ${cur}` : 'Сейчас ничего не отслеживается'}
+
+Отвечай по-русски. Будь краткой (2–4 предложения), тёплой, живой. Не перечисляй данные без запроса. Если Даша делится мыслями — слушай и поддерживай. Если спрашивает о своём дне — отвечай по данным выше.`
+}
+
+async function aiReply(userText: string, today: string, history: { role: string; content: string }[]): Promise<string> {
+  const system = await buildSystemPrompt(today)
+  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'system', content: system }, ...history, { role: 'user', content: userText }],
+      max_tokens: 350,
+      temperature: 0.85,
+    }),
+  })
+  const json = await resp.json()
+  return json.choices?.[0]?.message?.content?.trim() || 'Не смогла ответить 🙁'
+}
+
 async function confirmStart(chatId: number, actId: string, started: Date) {
   const today = new Date().toISOString().slice(0, 10)
   const focus = ACT_TO_FOCUS[actId] || 'other'
@@ -102,6 +185,31 @@ async function confirmStart(chatId: number, actId: string, started: Date) {
 
 async function process(update: any) {
   const today = new Date().toISOString().slice(0, 10)
+
+  // ── голосовое → AI-диалог ──
+  if (update.message?.voice) {
+    const chatId = update.message.chat.id
+    if (!OPENAI_API_KEY) {
+      await tg('sendMessage', { chat_id: chatId, text: '⚠️ OpenAI ключ не настроен' })
+      return
+    }
+    await tg('sendChatAction', { chat_id: chatId, action: 'typing' })
+    const transcript = await transcribeVoice(update.message.voice.file_id)
+    if (!transcript) {
+      await tg('sendMessage', { chat_id: chatId, text: 'Не удалось распознать голосовое 🙁' })
+      return
+    }
+    const history = await getChatHistory(today)
+    await saveChatMsg(today, 'user', transcript)
+    const reply = await aiReply(transcript, today, history)
+    await saveChatMsg(today, 'assistant', reply)
+    await tg('sendMessage', {
+      chat_id: chatId,
+      text: `_${transcript}_\n\n${reply}`,
+      parse_mode: 'Markdown',
+    })
+    return
+  }
 
   // ── текстовое сообщение ──
   if (update.message) {
