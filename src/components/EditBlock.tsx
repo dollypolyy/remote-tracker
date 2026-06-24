@@ -32,6 +32,7 @@ export function EditBlock({ block, onDone, onClose }: Props) {
       if (!endD) { setError('Конец: формат 14:30'); return }
       if (endD.getTime() > nowMs) { setError('Конец не может быть в будущем'); return }
       if (endD.getTime() <= startD.getTime()) { setError('Конец должен быть позже начала'); return }
+      if (endD.getTime() - startD.getTime() < 60_000) { setError('Минимум 1 минута'); return }
       endISO = endD.toISOString()
     }
     await updateBlock(block.id, {

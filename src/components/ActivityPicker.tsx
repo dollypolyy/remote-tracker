@@ -36,6 +36,7 @@ export function ActivityPicker({ title = 'что делаешь?', fixedStart, f
   const [actId, setActId] = useState<string | null>(null)
   const [customTime, setCustomTime] = useState('')
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const isGap = !!fixedStart
 
@@ -45,10 +46,16 @@ export function ActivityPicker({ title = 'что делаешь?', fixedStart, f
     setStep(isGap ? 'gapEnd' : 'time')
   }
 
+  const fire = (fn: () => void) => {
+    if (submitting) return
+    setSubmitting(true)
+    fn()
+  }
+
   // обычный режим: «когда началось»
   const confirm = (startedAt: Date) => {
     if (startedAt.getTime() > Date.now() + 60_000) { setError('Нельзя ставить время вперёд'); return }
-    if (focus && actId) onPick(actId, focus, startedAt)
+    if (focus && actId) fire(() => onPick(actId, focus, startedAt))
   }
   const onCustom = () => {
     const d = parseMskTime(customTime)
@@ -62,14 +69,15 @@ export function ActivityPicker({ title = 'что делаешь?', fixedStart, f
     let e = end
     if (fixedEnd && e.getTime() > fixedEnd.getTime()) e = fixedEnd
     if (e.getTime() <= fixedStart.getTime()) { setError('Конец должен быть позже начала'); return }
+    if (e.getTime() - fixedStart.getTime() < 60_000) { setError('Минимум 1 минута'); return }
     // если время в пределах 10 мин от «сейчас» — открытый блок (не закрывать)
-    if (gapToNow && e.getTime() >= Date.now() - 10 * 60_000) onPick(actId, focus, fixedStart)
-    else onPick(actId, focus, fixedStart, e)
+    if (gapToNow && e.getTime() >= Date.now() - 10 * 60_000) fire(() => onPick(actId, focus, fixedStart))
+    else fire(() => onPick(actId, focus, fixedStart, e))
   }
   // «продолжается сейчас» — всегда открытый блок, без проверки времени
   const confirmToNow = () => {
     if (!fixedStart || !focus || !actId) return
-    onPick(actId, focus, fixedStart)
+    fire(() => onPick(actId, focus, fixedStart))
   }
   const onCustomGap = () => {
     const d = parseMskTime(customTime)
@@ -127,7 +135,7 @@ export function ActivityPicker({ title = 'что делаешь?', fixedStart, f
             </div>
             <div className={s.timeGrid}>
               {TIME_PRESETS.map((t) => (
-                <button key={t.mins} className={s.timeBtn}
+                <button key={t.mins} className={s.timeBtn} disabled={submitting}
                         onClick={() => confirm(new Date(Date.now() - t.mins * 60_000))}>
                   {t.label}
                 </button>
@@ -136,7 +144,7 @@ export function ActivityPicker({ title = 'что делаешь?', fixedStart, f
             <div className={s.customRow}>
               <input className={s.timeInput} value={customTime} inputMode="numeric"
                      onChange={(e) => { setCustomTime(e.target.value); setError('') }} placeholder="14:30" />
-              <button className={s.timeOk} onClick={onCustom}>задать</button>
+              <button className={s.timeOk} disabled={submitting} onClick={onCustom}>задать</button>
             </div>
             {error && <div className={s.error}>{error}</div>}
           </>
@@ -157,12 +165,12 @@ export function ActivityPicker({ title = 'что делаешь?', fixedStart, f
                 .map((d) => ({ d, end: new Date(fixedStart.getTime() + d * 60_000) }))
                 .filter(({ end }) => !fixedEnd || end.getTime() <= fixedEnd.getTime() + 60_000)
                 .map(({ d, end }) => (
-                  <button key={d} className={s.timeBtn} onClick={() => confirmGap(end)}>
+                  <button key={d} className={s.timeBtn} disabled={submitting} onClick={() => confirmGap(end)}>
                     {d < 60 ? `${d} мин` : d % 60 === 0 ? `${d / 60} ч` : `${(d / 60).toFixed(1).replace('.', ',')} ч`}
                   </button>
                 ))}
               {gapToNow && (
-                <button className={s.timeBtnWide} onClick={confirmToNow}>
+                <button className={s.timeBtnWide} disabled={submitting} onClick={confirmToNow}>
                   ▶ продолжается сейчас
                 </button>
               )}

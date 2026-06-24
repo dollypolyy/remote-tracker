@@ -40,14 +40,16 @@ export async function getTodayStats(): Promise<DayStats> {
     return { ...b, ended_at: endMs != null ? new Date(endMs).toISOString() : null }
   })
 
-  // Слияние соседних блоков с одной и той же активностью (и в базе тоже)
+  // Слияние соседних блоков с одной и той же активностью (и в базе тоже — awaited)
   const blocks: ActivityBlock[] = []
   for (const b of normalized) {
     const prev = blocks[blocks.length - 1]
     if (prev && prev.activity_id === b.activity_id) {
       prev.ended_at = b.ended_at
-      void supabase.from('activity_blocks').update({ ended_at: b.ended_at }).eq('id', prev.id)
-      void supabase.from('activity_blocks').delete().eq('id', b.id)
+      await Promise.all([
+        supabase.from('activity_blocks').update({ ended_at: b.ended_at }).eq('id', prev.id),
+        supabase.from('activity_blocks').delete().eq('id', b.id),
+      ])
     } else {
       blocks.push({ ...b })
     }
@@ -91,6 +93,8 @@ export class FutureTimeError extends Error {
   constructor() { super('Нельзя ставить время в будущем') }
 }
 
+const MIN_DURATION = 60_000 // минимум 1 минута на блок
+
 // Подрезает существующие блоки дня так, чтобы [startMs, endMs] никого не пересекал
 async function trimOverlaps(today: string, startMs: number, endMs: number, exceptId?: string) {
   const { data } = await supabase.from('activity_blocks').select('*').eq('date', today)
@@ -120,6 +124,12 @@ export async function startActivity(activityId: string, focus: FocusKey, started
   const now = Date.now()
   if (startedAt.getTime() > now + 60_000) throw new FutureTimeError()
   const today = todayStr()
+  // Деdup: не создавать, если такой же блок уже был в последние 30 сек
+  const { data: recent } = await supabase
+    .from('activity_blocks').select('id').eq('date', today).eq('activity_id', activityId)
+    .gte('started_at', new Date(startedAt.getTime() - 30_000).toISOString())
+    .lte('started_at', new Date(startedAt.getTime() + 30_000).toISOString()).limit(1)
+  if (recent && recent.length > 0) return
   await trimOverlaps(today, startedAt.getTime(), now)
   const { error } = await supabase.from('activity_blocks').insert({
     date: today,
@@ -133,6 +143,8 @@ export async function startActivity(activityId: string, focus: FocusKey, started
 // Вставить завершённый блок в конкретный промежуток (заполнение пропуска)
 export async function insertBlock(activityId: string, focus: FocusKey, start: Date, end: Date): Promise<void> {
   if (start.getTime() > Date.now() + 60_000) throw new FutureTimeError()
+  if (end.getTime() <= start.getTime()) throw new Error('Конец должен быть позже начала')
+  if (end.getTime() - start.getTime() < MIN_DURATION) throw new Error('Минимум 1 минута')
   const today = todayStr()
   await trimOverlaps(today, start.getTime(), end.getTime())
   const { error } = await supabase.from('activity_blocks').insert({

@@ -28,6 +28,12 @@ async function getOpenBlock(today: string) {
 // Предыдущий открытый блок закрывается этим же временем (раньше — значит он раньше и закончился).
 async function openBlock(activityId: string, focus: string, startedAt: Date) {
   const today = new Date().toISOString().slice(0, 10)
+  // Деdup: не создавать, если точно такой же блок уже есть в ±60 сек
+  const { data: dup } = await db.from('activity_blocks').select('id')
+    .eq('date', today).eq('activity_id', activityId)
+    .gte('started_at', new Date(startedAt.getTime() - 60_000).toISOString())
+    .lte('started_at', new Date(startedAt.getTime() + 60_000).toISOString()).limit(1)
+  if (dup && dup.length > 0) return
   await db
     .from('activity_blocks')
     .update({ ended_at: startedAt.toISOString() })
@@ -247,11 +253,22 @@ ${histLines.length ? histLines.join('\n') : 'Данных пока нет'}`
 async function logActivity(activityId: string, focus: string, startedAt: Date, endedAt?: Date) {
   const today = new Date().toISOString().slice(0, 10)
   if (endedAt) {
+    // Валидация: start < end и минимум 1 минута
+    if (endedAt.getTime() <= startedAt.getTime()) {
+      // GPT перепутал порядок — меняем местами
+      [startedAt, endedAt] = [endedAt, startedAt]
+    }
+    if (endedAt.getTime() - startedAt.getTime() < 60_000) return // слишком короткий блок
+    // Деdup: не создавать, если такой блок уже есть
+    const { data: dup } = await db.from('activity_blocks').select('id')
+      .eq('date', today).eq('activity_id', activityId)
+      .gte('started_at', new Date(startedAt.getTime() - 60_000).toISOString())
+      .lte('started_at', new Date(startedAt.getTime() + 60_000).toISOString()).limit(1)
+    if (dup && dup.length > 0) return
     // Ретроактивный блок — закрываем предыдущие открытые, что начались раньше
     await db.from('activity_blocks')
       .update({ ended_at: startedAt.toISOString() })
-      .eq('date', today)
-      .is('ended_at', null)
+      .eq('date', today).is('ended_at', null)
       .lt('started_at', startedAt.toISOString())
     await db.from('activity_blocks').insert({
       date: today,
@@ -311,6 +328,30 @@ const DIARY_TOOL = {
   },
 }
 
+const DELETE_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'delete_activity',
+    description: 'Удалить последний блок активности сегодня. Вызывай когда Даша говорит «удали съёмку», «убери это», «ошиблась — удали», «удали последнее».',
+    parameters: {
+      type: 'object',
+      properties: {
+        activity_id: {
+          type: 'string',
+          enum: [
+            'biz_research','biz_plan','biz_learn','biz_build','biz_calls','biz_strategy',
+            'sport_gym','sport_home','sport_walk','sport_run','sport_dance','sport_yoga','sport_other',
+            'blog_idea','blog_film','blog_edit','blog_post',
+            'other_cook','other_eat','other_study','other_chores','other_rest','other_road','other_scroll','other_personal',
+          ],
+          description: 'ID активности для удаления. Удаляет самый последний блок с этим ID сегодня.',
+        },
+      },
+      required: ['activity_id'],
+    },
+  },
+}
+
 async function aiReply(userText: string, today: string, history: { role: string; content: string }[]): Promise<string> {
   const system = await buildSystemPrompt(today)
   const msgs: any[] = [{ role: 'system', content: system }, ...history, { role: 'user', content: userText }]
@@ -318,7 +359,7 @@ async function aiReply(userText: string, today: string, history: { role: string;
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgs, tools: [LOG_TOOL, DIARY_TOOL], tool_choice: 'auto', max_tokens: 400, temperature: 0.85 }),
+    body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgs, tools: [LOG_TOOL, DIARY_TOOL, DELETE_TOOL], tool_choice: 'auto', max_tokens: 400, temperature: 0.85 }),
   })
   const json = await resp.json()
   const msg = json.choices?.[0]?.message
@@ -337,6 +378,16 @@ async function aiReply(userText: string, today: string, history: { role: string;
         } else if (tc.function.name === 'save_diary_thought') {
           await saveDiaryField(today, args.field, args.text)
           toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'saved' })
+        } else if (tc.function.name === 'delete_activity') {
+          const { data: toDelete } = await db.from('activity_blocks').select('id')
+            .eq('date', today).eq('activity_id', args.activity_id)
+            .order('started_at', { ascending: false }).limit(1)
+          if (toDelete?.[0]) {
+            await db.from('activity_blocks').delete().eq('id', toDelete[0].id)
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'deleted' })
+          } else {
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'not found' })
+          }
         }
       } catch {
         toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'error' })
