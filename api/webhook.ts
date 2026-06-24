@@ -183,7 +183,7 @@ async function confirmStart(chatId: number, actId: string, started: Date) {
   if (prevFocus) await sendReflectionPrompt(chatId, prevFocus)
 }
 
-async function process(update: any) {
+async function handleUpdate(update: any) {
   const today = new Date().toISOString().slice(0, 10)
 
   // ── голосовое → AI-диалог ──
@@ -360,7 +360,7 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end()
 
   try {
-    await process(parseBody(req))
+    await handleUpdate(parseBody(req))
   } catch (e) {
     console.error('webhook error', e)
   }
