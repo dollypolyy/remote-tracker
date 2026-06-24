@@ -95,11 +95,13 @@ export class FutureTimeError extends Error {
 
 const MIN_DURATION = 60_000 // минимум 1 минута на блок
 
-// Подрезает существующие блоки дня так, чтобы [startMs, endMs] никого не пересекал
-async function trimOverlaps(today: string, startMs: number, endMs: number, exceptId?: string) {
+// Подрезает существующие блоки дня так, чтобы [startMs, endMs] никого не пересекал.
+// onlyOpen=true — трогать только открытые блоки (ended_at IS NULL); явно заполненные закрытые блоки не трогать.
+async function trimOverlaps(today: string, startMs: number, endMs: number, exceptId?: string, onlyOpen = false) {
   const { data } = await supabase.from('activity_blocks').select('*').eq('date', today)
   for (const b of (data || []) as ActivityBlock[]) {
     if (b.id === exceptId) continue
+    if (onlyOpen && b.ended_at != null) continue          // защищаем явно введённые закрытые блоки
     const bs = +new Date(b.started_at)
     const be = b.ended_at ? +new Date(b.ended_at) : Date.now()
     if (be <= startMs || bs >= endMs) continue            // не пересекаются
@@ -130,7 +132,8 @@ export async function startActivity(activityId: string, focus: FocusKey, started
     .gte('started_at', new Date(startedAt.getTime() - 30_000).toISOString())
     .lte('started_at', new Date(startedAt.getTime() + 30_000).toISOString()).limit(1)
   if (recent && recent.length > 0) return
-  await trimOverlaps(today, startedAt.getTime(), now)
+  // onlyOpen=true: не удалять явно заполненные закрытые блоки (дорога и т.п.)
+  await trimOverlaps(today, startedAt.getTime(), now, undefined, true)
   const { error } = await supabase.from('activity_blocks').insert({
     date: today,
     started_at: startedAt.toISOString(),
