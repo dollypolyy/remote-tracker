@@ -385,11 +385,7 @@ async function handleUpdate(update: any) {
     await saveChatMsg(today, 'user', transcript)
     const reply = await aiReply(transcript, today, history)
     await saveChatMsg(today, 'assistant', reply)
-    await tg('sendMessage', {
-      chat_id: chatId,
-      text: `_${transcript}_\n\n${reply}`,
-      parse_mode: 'Markdown',
-    })
+    await tg('sendMessage', { chat_id: chatId, text: reply })
     return
   }
 
