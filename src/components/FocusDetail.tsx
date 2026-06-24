@@ -9,6 +9,7 @@ const FOCUS_ICON: Record<FocusKey, string> = {
 const COLORS: Record<FocusKey, string> = {
   biz: 'var(--biz)', sport: 'var(--sport)', blog: 'var(--blog)', other: 'var(--other)',
 }
+const fmt = (n: number) => n.toFixed(1).replace('.', ',')
 
 interface Props {
   focus: FocusKey
@@ -37,7 +38,7 @@ export function FocusDetail({ focus, blocks, onClose }: Props) {
         <div className={s.grab} />
         <div className={s.title}>{FOCUS_ICON[focus]} {FOCUSES[focus].name}</div>
         <div className={d.summary}>
-          сегодня <b>{total.toFixed(1)} ч</b>
+          сегодня <b>{fmt(total)} ч</b>
           {goal > 0 ? ` из ${goal} ч` : ''}
         </div>
 
@@ -52,7 +53,7 @@ export function FocusDetail({ focus, blocks, onClose }: Props) {
                 <div key={actId} className={d.row}>
                   <div className={d.rowTop}>
                     <span className={d.rowName}>{label}</span>
-                    <span className={d.rowH}>{h.toFixed(1)} ч</span>
+                    <span className={d.rowH}>{fmt(h)} ч</span>
                   </div>
                   <div className={d.track}>
                     <div className={d.fill} style={{ width: `${pct}%`, background: COLORS[focus] }} />

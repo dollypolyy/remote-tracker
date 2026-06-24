@@ -61,7 +61,7 @@ export function Stats({ onBack }: { onBack: () => void }) {
           {/* сводка */}
           <div className={s.cards}>
             <div className={s.card}>
-              <div className={s.cardBig}>{fmt(avgFocus)}ч</div>
+              <div className={s.cardBig}>{fmt(avgFocus)} ч</div>
               <div className={s.cardLabel}>в фокусе / день</div>
             </div>
             <div className={s.card}>
@@ -104,7 +104,7 @@ export function Stats({ onBack }: { onBack: () => void }) {
               <div key={f.key} className={s.fRow}>
                 <div className={s.fTop}>
                   <span className={s.fName}>{f.name}</span>
-                  <span className={s.fVal}>{fmt(f.avg)}ч <span className={s.fGoal}>/ {f.goal}ч</span></span>
+                  <span className={s.fVal}>{fmt(f.avg)} ч <span className={s.fGoal}>/ {f.goal} ч</span></span>
                 </div>
                 <div className={s.fTrack}>
                   <div className={s.fFill} style={{
@@ -114,7 +114,7 @@ export function Stats({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
             ))}
-            <div className={s.otherLine}>вне фокуса в среднем {fmt(sumOther / n)}ч / день</div>
+            <div className={s.otherLine}>вне фокуса в среднем {fmt(sumOther / n)} ч / день</div>
           </div>
 
           {/* настроение */}

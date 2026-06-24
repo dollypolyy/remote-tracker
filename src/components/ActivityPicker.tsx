@@ -153,7 +153,7 @@ export function ActivityPicker({ title = 'что делаешь?', fixedStart, f
                 .filter(({ end }) => !fixedEnd || end.getTime() <= fixedEnd.getTime() + 60_000)
                 .map(({ d, end }) => (
                   <button key={d} className={s.timeBtn} onClick={() => confirmGap(end)}>
-                    {d < 60 ? `${d} мин` : d % 60 === 0 ? `${d / 60} ч` : `${(d / 60).toFixed(1)} ч`}
+                    {d < 60 ? `${d} мин` : d % 60 === 0 ? `${d / 60} ч` : `${(d / 60).toFixed(1).replace('.', ',')} ч`}
                   </button>
                 ))}
               {fixedEnd && (

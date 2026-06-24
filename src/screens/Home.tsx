@@ -14,6 +14,8 @@ type TLItem =
   | { type: 'block'; start: number; end: number; block: ActivityBlock }
   | { type: 'gap'; start: number; end: number; toNow: boolean }
 
+const fmtH = (n: number) => n.toFixed(1).replace('.', ',')
+
 // Строит ленту дня с 08:00, заполняя промежутки «пропусками»
 function buildTimeline(blocks: ActivityBlock[], dayStart: number, now: number): TLItem[] {
   const items: TLItem[] = []
@@ -154,7 +156,7 @@ export function Home() {
         <div className={s.heroLabel}>сегодня в фокусе</div>
         <div className={s.heroBig}>{loading ? '…' : `${focusPct}%`}</div>
         <div className={s.heroSub}>
-          {loading ? 'загрузка...' : `${totalDone.toFixed(1)} из ${totalGoal} часов по приоритетам`}
+          {loading ? 'загрузка...' : `${fmtH(totalDone)} из ${totalGoal} часов по приоритетам`}
         </div>
       </div>
 
@@ -169,7 +171,7 @@ export function Home() {
                 <div className={s.ringVal}>{pct}%</div>
               </div>
               <div className={s.ringName}>{f.name}</div>
-              <div className={s.ringGoal}>{done.toFixed(1)}/{f.goalH}ч</div>
+              <div className={s.ringGoal}>{fmtH(done)} / {f.goalH} ч</div>
             </button>
           )
         })}
@@ -192,7 +194,7 @@ export function Home() {
           {(['biz', 'sport', 'blog', 'other'] as const).map((k) => (
             <div key={k} className={s.balItem}>
               <span className={s.balDot} style={{ background: FOCUS_COLORS[k] }} />
-              {FOCUSES[k].name} <b>{hoursByFocus[k].toFixed(1)}ч</b>
+              {FOCUSES[k].name} <b>{fmtH(hoursByFocus[k])} ч</b>
             </div>
           ))}
         </div>

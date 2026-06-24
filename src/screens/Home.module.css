@@ -92,10 +92,10 @@
   margin-bottom: 12px;
 }
 .balEmpty { flex: 1; }
-.balLegend { display: flex; gap: 10px 16px; flex-wrap: wrap; }
-.balItem { font-size: 13px; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; }
+.balLegend { display: flex; gap: 0; justify-content: space-between; flex-wrap: nowrap; }
+.balItem { font-size: 11px; color: var(--ink-soft); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
 .balItem b { color: var(--ink); font-weight: 700; }
-.balDot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.balDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
 /* now card */
 .now {
