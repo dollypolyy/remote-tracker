@@ -62,9 +62,14 @@ export function ActivityPicker({ title = 'что делаешь?', fixedStart, f
     let e = end
     if (fixedEnd && e.getTime() > fixedEnd.getTime()) e = fixedEnd
     if (e.getTime() <= fixedStart.getTime()) { setError('Конец должен быть позже начала'); return }
-    // если дотянули до «сейчас» — это текущая активность (открытый блок)
-    if (gapToNow && e.getTime() >= Date.now() - 60_000) onPick(actId, focus, fixedStart)
+    // если время в пределах 10 мин от «сейчас» — открытый блок (не закрывать)
+    if (gapToNow && e.getTime() >= Date.now() - 10 * 60_000) onPick(actId, focus, fixedStart)
     else onPick(actId, focus, fixedStart, e)
+  }
+  // «продолжается сейчас» — всегда открытый блок, без проверки времени
+  const confirmToNow = () => {
+    if (!fixedStart || !focus || !actId) return
+    onPick(actId, focus, fixedStart)
   }
   const onCustomGap = () => {
     const d = parseMskTime(customTime)
@@ -156,9 +161,14 @@ export function ActivityPicker({ title = 'что делаешь?', fixedStart, f
                     {d < 60 ? `${d} мин` : d % 60 === 0 ? `${d / 60} ч` : `${(d / 60).toFixed(1).replace('.', ',')} ч`}
                   </button>
                 ))}
-              {fixedEnd && (
+              {gapToNow && (
+                <button className={s.timeBtnWide} onClick={confirmToNow}>
+                  ▶ продолжается сейчас
+                </button>
+              )}
+              {!gapToNow && fixedEnd && (
                 <button className={s.timeBtnWide} onClick={() => confirmGap(fixedEnd)}>
-                  {gapToNow ? 'до сейчас' : 'до конца пропуска'}
+                  до конца пропуска
                 </button>
               )}
             </div>
