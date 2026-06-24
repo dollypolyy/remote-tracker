@@ -396,6 +396,30 @@ async function handleUpdate(update: any) {
     const text: string = update.message.text || ''
     const replyText: string = update.message.reply_to_message?.text || ''
 
+    // /start — устанавливает кнопку меню и приветствует
+    if (text === '/start' || text.startsWith('/start ')) {
+      await tg('setChatMenuButton', {
+        chat_id: chatId,
+        menu_button: { type: 'web_app', text: 'Трекер', web_app: { url: 'https://remote-tracker-gamma.vercel.app' } },
+      })
+      await tg('sendMessage', {
+        chat_id: chatId,
+        text: 'Привет! Кнопка «Трекер» теперь всегда рядом с полем ввода — нажимай в любой момент.',
+        reply_markup: { inline_keyboard: [[{ text: '📱 открыть приложение', url: 'https://t.me/remote_tracker_dp_bot/tracker' }]] },
+      })
+      return
+    }
+
+    // /app — быстрый доступ к приложению
+    if (text === '/app') {
+      await tg('sendMessage', {
+        chat_id: chatId,
+        text: '📱',
+        reply_markup: { inline_keyboard: [[{ text: 'открыть приложение', url: 'https://t.me/remote_tracker_dp_bot/tracker' }]] },
+      })
+      return
+    }
+
     // ответ на запрос рефлексии — в тексте зашит #reflect_{focus}
     const reflectMatch = replyText.match(/#reflect_([a-z]+)/)
     if (reflectMatch) {
