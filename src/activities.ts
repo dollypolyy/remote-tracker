@@ -49,6 +49,7 @@ export const ACTIVITIES: Activity[] = [
 
   // ⚪ прочее
   { id: 'other_cook',   label: 'готовка',  focus: 'other' },
+  { id: 'other_eat',    label: 'еда',      focus: 'other' },
   { id: 'other_study',  label: 'учёба',    focus: 'other' },
   { id: 'other_chores', label: 'быт',      focus: 'other' },
   { id: 'other_rest',   label: 'отдых',    focus: 'other' },

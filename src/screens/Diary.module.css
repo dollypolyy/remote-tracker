@@ -93,6 +93,27 @@
 }
 .area:focus { outline: none; background: rgba(0, 0, 0, 0.05); }
 
+/* bot reflections */
+.reflectCard {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.reflectTitle { font-size: 13px; color: var(--ink-soft); font-weight: 600; margin-bottom: 12px; }
+.reflectItem { margin-bottom: 10px; }
+.reflectItem:last-child { margin-bottom: 0; }
+.reflectMeta {
+  display: flex; justify-content: space-between;
+  font-size: 12px; font-weight: 700; color: var(--ink);
+  margin-bottom: 4px;
+}
+.reflectTime { color: var(--ink-soft); font-weight: 500; }
+.reflectText { font-size: 14px; color: var(--ink); line-height: 1.45; }
+
 /* save */
 .saveBtn {
   width: 100%;

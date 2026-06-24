@@ -40,6 +40,7 @@ export const ACTS_BY_FOCUS: Record<string, { id: string; label: string }[]> = {
   ],
   other: [
     { id: 'other_cook',     label: 'готовка' },
+    { id: 'other_eat',      label: 'еда' },
     { id: 'other_study',    label: 'учёба' },
     { id: 'other_chores',   label: 'быт' },
     { id: 'other_rest',     label: 'отдых' },

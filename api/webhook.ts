@@ -51,13 +51,53 @@ function parseMskTime(text: string): Date | null {
   return isNaN(d.getTime()) ? null : d
 }
 
+// Возвращает фокус предыдущего блока, если он требует рефлексии (бизнес/спорт/блог → другой)
+async function prevFocusForReflection(today: string, newFocus: string): Promise<string | null> {
+  const open = await getOpenBlock(today)
+  if (!open) return null
+  if (open.focus === newFocus) return null
+  if (!['biz', 'sport', 'blog'].includes(open.focus)) return null
+  return open.focus
+}
+
+const REFLECT_Q: Record<string, string> = {
+  biz:   'Завершила блок 💼 бизнес. Что успела? Что получилось, что нет? ✍️',
+  sport: 'Завершила 🏃‍♀️ спорт. Как прошло? ✍️',
+  blog:  'Завершила блок 🎬 блог. Что получилось? ✍️',
+}
+
+async function sendReflectionPrompt(chatId: number, focus: string) {
+  await tg('sendMessage', {
+    chat_id: chatId,
+    text: `${REFLECT_Q[focus]}\n#reflect_${focus}`,
+    reply_markup: { force_reply: true, input_field_placeholder: 'пара предложений…' },
+  })
+}
+
+async function saveReflection(date: string, focus: string, text: string) {
+  const ts = new Date().toLocaleTimeString('ru-RU', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow',
+  })
+  const { data } = await db.from('diary_entries').select('reflections').eq('date', date).maybeSingle()
+  const prev = (data as any)?.reflections ?? []
+  const updated = [...prev, { focus, text: text.trim(), time: ts }]
+  if (data) {
+    await db.from('diary_entries').update({ reflections: updated }).eq('date', date)
+  } else {
+    await db.from('diary_entries').insert({ date, reflections: updated })
+  }
+}
+
 async function confirmStart(chatId: number, actId: string, started: Date) {
+  const today = new Date().toISOString().slice(0, 10)
   const focus = ACT_TO_FOCUS[actId] || 'other'
+  const prevFocus = await prevFocusForReflection(today, focus)
   await openBlock(actId, focus, started)
   await tg('sendMessage', {
     chat_id: chatId,
     text: `✅ ${actLabel(actId)} · ${FOCUS_LABELS[focus]}\nНачало: ${mskTime(started)} МСК`,
   })
+  if (prevFocus) await sendReflectionPrompt(chatId, prevFocus)
 }
 
 async function process(update: any) {
@@ -68,6 +108,14 @@ async function process(update: any) {
     const chatId = update.message.chat.id
     const text: string = update.message.text || ''
     const replyText: string = update.message.reply_to_message?.text || ''
+
+    // ответ на запрос рефлексии — в тексте зашит #reflect_{focus}
+    const reflectMatch = replyText.match(/#reflect_([a-z]+)/)
+    if (reflectMatch) {
+      await saveReflection(today, reflectMatch[1], text)
+      await tg('sendMessage', { chat_id: chatId, text: '✅ Записала в дневник 📝' })
+      return
+    }
 
     // ответ на запрос «введи время» — в тексте исходного сообщения зашит #actId
     const tagMatch = replyText.match(/#([a-z_]+)/)
@@ -179,12 +227,14 @@ async function process(update: any) {
     const minsAgo = parseInt(when, 10) || 0
     const started = new Date(Date.now() - minsAgo * 60_000)
     const focus = ACT_TO_FOCUS[actId] || 'other'
+    const prevFocus = await prevFocusForReflection(today, focus)
     await openBlock(actId, focus, started)
     await tg('editMessageText', {
       chat_id: chatId,
       message_id: messageId,
       text: `✅ ${actLabel(actId)} · ${FOCUS_LABELS[focus]}\nНачало: ${mskTime(started)} МСК`,
     })
+    if (prevFocus) await sendReflectionPrompt(chatId, prevFocus)
     return
   }
 }

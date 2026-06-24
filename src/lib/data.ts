@@ -221,6 +221,12 @@ export async function getRangeStats(days: number): Promise<DayAgg[]> {
 
 // ─── Дневник ───────────────────────────────────────────────
 
+export interface Reflection {
+  focus: string
+  text: string
+  time: string  // "14:32" MSK
+}
+
 export interface DiaryEntry {
   id?: string
   date: string
@@ -231,6 +237,7 @@ export interface DiaryEntry {
   goals: string
   mood: number | null
   raw_transcript?: string
+  reflections?: Reflection[]
 }
 
 export async function getDiary(date: string): Promise<DiaryEntry | null> {

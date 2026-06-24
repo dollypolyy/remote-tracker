@@ -3,6 +3,8 @@ import s from './Diary.module.css'
 import { useVoice } from '../hooks/useVoice'
 import { getDiary, saveDiary, type DiaryEntry } from '../lib/data'
 
+const FOCUS_EMOJI: Record<string, string> = { biz: '💼', sport: '🏃‍♀️', blog: '🎬', other: '🌿' }
+
 const MOODS = ['😣', '😕', '😐', '🙂', '😄']
 
 interface Field {
@@ -125,6 +127,21 @@ export function Diary({ onBack }: { onBack: () => void }) {
           </div>
         )
       })}
+
+      {entry.reflections && entry.reflections.length > 0 && (
+        <div className={s.reflectCard}>
+          <div className={s.reflectTitle}>мысли из бота</div>
+          {entry.reflections.map((r, i) => (
+            <div key={i} className={s.reflectItem}>
+              <div className={s.reflectMeta}>
+                <span>{FOCUS_EMOJI[r.focus] ?? ''} {r.focus}</span>
+                <span className={s.reflectTime}>{r.time}</span>
+              </div>
+              <div className={s.reflectText}>{r.text}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <button className={s.saveBtn} onClick={onSave}>
         {saved ? '✓ сохранено' : 'сохранить дневник'}
