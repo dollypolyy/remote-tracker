@@ -120,6 +120,108 @@ async function handleThought(chatId: number, text: string, today: string) {
   await tg('sendMessage', { chat_id: chatId, text: `✍️ Записала → ${labels[focus]}` })
 }
 
+// ── Данные и память ──────────────────────────────────────────
+
+async function savePref(key: string, value: string) {
+  try {
+    const { data } = await db.from('user_prefs').select('key').eq('key', key).maybeSingle()
+    if (data) {
+      await db.from('user_prefs').update({ value, updated_at: new Date().toISOString() }).eq('key', key)
+    } else {
+      await db.from('user_prefs').insert({ key, value })
+    }
+  } catch { /* таблица ещё не создана */ }
+}
+
+async function loadPrefs(): Promise<{ key: string; value: string }[]> {
+  try {
+    const { data } = await db.from('user_prefs').select('key, value').order('key')
+    return (data || []) as { key: string; value: string }[]
+  } catch { return [] }
+}
+
+export async function computeStatsForPeriod(startISO: string, endISO: string): Promise<string> {
+  const { data: blocks } = await db
+    .from('activity_blocks')
+    .select('date, focus, started_at, ended_at')
+    .gte('date', startISO)
+    .lte('date', endISO)
+    .order('started_at', { ascending: true })
+
+  const byDate = new Map<string, Record<string, number>>()
+  for (const b of (blocks || []) as any[]) {
+    if (!byDate.has(b.date)) byDate.set(b.date, { biz: 0, sport: 0, blog: 0, other: 0 })
+    const s = +new Date(b.started_at)
+    const e = b.ended_at ? +new Date(b.ended_at) : s + 1_800_000
+    const h = byDate.get(b.date)!
+    const f = ['biz', 'sport', 'blog', 'other'].includes(b.focus) ? b.focus : 'other'
+    h[f] += Math.max(0, (e - s) / 3_600_000)
+  }
+
+  const activeDays = byDate.size
+  if (activeDays === 0) return `Нет данных за ${startISO} – ${endISO}`
+
+  const totals = { biz: 0, sport: 0, blog: 0, other: 0 }
+  for (const h of byDate.values()) {
+    totals.biz += h.biz; totals.sport += h.sport; totals.blog += h.blog; totals.other += h.other
+  }
+  const n = activeDays
+  const focusTotal = totals.biz + totals.sport + totals.blog
+  return `${startISO} – ${endISO} · ${activeDays} активных дней
+💼 бизнес: ${totals.biz.toFixed(1)} ч (сред. ${(totals.biz/n).toFixed(1)}/день) ${totals.biz/n >= 6 ? '✅' : ''}
+🏃‍♀️ спорт: ${totals.sport.toFixed(1)} ч (сред. ${(totals.sport/n).toFixed(1)}/день) ${totals.sport/n >= 0.5 ? '✅' : ''}
+🎬 блог: ${totals.blog.toFixed(1)} ч (сред. ${(totals.blog/n).toFixed(1)}/день) ${totals.blog/n >= 2 ? '✅' : ''}
+🌿 прочее: ${totals.other.toFixed(1)} ч
+🎯 в фокусе суммарно: ${focusTotal.toFixed(1)} ч`
+}
+
+async function getDiaryEntries(startISO: string, endISO: string, field?: string): Promise<string> {
+  const { data } = await db
+    .from('diary_entries')
+    .select('date, achieved, not_achieved, thoughts, goals, reflections')
+    .gte('date', startISO)
+    .lte('date', endISO)
+    .order('date', { ascending: true })
+
+  const entries = (data || []) as any[]
+  if (entries.length === 0) return `Нет записей дневника за ${startISO} – ${endISO}`
+
+  const FOCUS_NAMES: Record<string, string> = { biz: 'бизнес', sport: 'спорт', blog: 'блог', other: 'прочее' }
+  const lines: string[] = []
+  for (const e of entries) {
+    const d = new Date(e.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', timeZone: 'Europe/Moscow' })
+    const all = !field || field === 'all'
+    if ((all || field === 'achieved') && e.achieved)        lines.push(`${d} ✅ победы: ${e.achieved}`)
+    if ((all || field === 'not_achieved') && e.not_achieved) lines.push(`${d} ⚠️ не вышло: ${e.not_achieved}`)
+    if ((all || field === 'thoughts') && e.thoughts)         lines.push(`${d} 💭 мысли: ${e.thoughts}`)
+    if ((all || field === 'goals') && e.goals)               lines.push(`${d} 🎯 цели: ${e.goals}`)
+    if (all || field === 'reflections') {
+      for (const r of (e.reflections || []) as { focus: string; text: string }[]) {
+        lines.push(`${d} [${FOCUS_NAMES[r.focus] || r.focus}] «${r.text.slice(0, 120)}»`)
+      }
+    }
+  }
+  return lines.length > 0 ? lines.join('\n') : `Нет записей за ${startISO} – ${endISO}`
+}
+
+async function getTimelineForDate(date: string): Promise<string> {
+  const { data: blocks } = await db
+    .from('activity_blocks').select('*').eq('date', date).order('started_at', { ascending: true })
+  const bArr = (blocks || []) as any[]
+  if (bArr.length === 0) return `Нет данных за ${date}`
+  const now = Date.now()
+  const lines = bArr.map((b: any, i: number) => {
+    const nextStart = bArr[i + 1] ? +new Date(bArr[i + 1].started_at) : null
+    let endMs = b.ended_at ? +new Date(b.ended_at) : (nextStart ?? now)
+    if (nextStart && endMs > nextStart) endMs = nextStart
+    const s = new Date(b.started_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })
+    const e = b.ended_at ? new Date(endMs).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }) : 'сейчас'
+    const h = Math.max(0, (endMs - +new Date(b.started_at)) / 3_600_000)
+    return `  ${s}–${e} ${actLabel(b.activity_id)} (${h.toFixed(1)}ч)`
+  })
+  return `Лента ${date}:\n${lines.join('\n')}`
+}
+
 // ── AI-диалог (голосовые сообщения) ──────────────────────────
 
 async function transcribeVoice(fileId: string): Promise<{ text: string; error?: string }> {
@@ -178,10 +280,11 @@ async function buildSystemPrompt(today: string): Promise<string> {
   start7.setDate(start7.getDate() - 7)
   const start7ISO = start7.toISOString().slice(0, 10)
 
-  const [{ data: blocks }, { data: histBlocks }, { data: recentDiaries }] = await Promise.all([
+  const [{ data: blocks }, { data: histBlocks }, { data: recentDiaries }, prefs] = await Promise.all([
     db.from('activity_blocks').select('*').eq('date', today).order('started_at', { ascending: true }),
     db.from('activity_blocks').select('date, focus, started_at, ended_at').gte('date', start7ISO).lt('date', today),
     db.from('diary_entries').select('date, reflections').gte('date', start7ISO).not('reflections', 'is', null),
+    loadPrefs(),
   ])
 
   const bArr = (blocks || []) as any[]
@@ -259,6 +362,20 @@ async function buildSystemPrompt(today: string): Promise<string> {
 — НЕ заканчивай каждое сообщение вопросом. Большинство ответов — просто поддержка или подтверждение. Вопрос уместен максимум раз из трёх
 — Тональность: честно и с теплом, как лучший друг. Никогда «это ни о чем», «вообще ноль» — вместо этого «есть куда расти», «го добавлять»
 — ${timeAdvice}
+— ЧЕСТНОСТЬ: если не можешь выполнить запрос — скажи прямо: «не могу [что именно] — [почему]. зато могу [альтернатива]». Никогда не молчи о границах и не делай вид что выполняешь то, что не можешь
+
+━━━ ДОСТУП К ДАННЫМ ━━━
+У тебя полный доступ к данным Даши — используй инструменты, не говори «у меня нет доступа»:
+— Статистика за любой период → get_stats(start_date, end_date)
+— Записи дневника, мысли, победы → get_diary(start_date, end_date, field?)
+— Лента любого прошлого дня → get_timeline(date)
+Для дат: «прошлая неделя» = последние 7 дней, «этот месяц» = с начала месяца.
+
+━━━ ПАМЯТЬ И НАСТРОЙКИ ━━━
+save_pref запоминает навсегда — вызывай когда Даша говорит «запомни», «каждый [день] присылай», «по умолчанию», «с этого момента».
+Для еженедельных отчётов: save_pref(key="schedule_[mon/tue/wed/thu/fri/sat/sun]", value="описание что прислать")
+Каждое утро того дня — отчёт отправляется автоматически.
+Текущие настройки Даши — в конце этого промпта.
 
 ━━━ ЗАПИСЬ АКТИВНОСТИ: ПРАВИЛО ПОДТВЕРЖДЕНИЯ ━━━
 Когда Даша голосом или текстом упоминает активность с временным диапазоном (например «делала съёмку с 15 до 16:30» или «с 9 утра до 10 была в зале»):
@@ -322,7 +439,10 @@ ${timelineSummary}
 ${histLines.length ? histLines.join('\n') : 'Данных пока нет'}
 
 ✍️ Мысли (7 дней):
-${reflLines.length ? reflLines.join('\n') : '  (пока нет)'}`
+${reflLines.length ? reflLines.join('\n') : '  (пока нет)'}
+
+⚙️ Настройки Даши:
+${prefs.length ? prefs.map(p => `  ${p.key}: ${p.value}`).join('\n') : '  (нет сохранённых настроек)'}`
 }
 
 async function logActivity(activityId: string, focus: string, startedAt: Date, endedAt?: Date) {
@@ -403,6 +523,74 @@ const DIARY_TOOL = {
   },
 }
 
+const GET_STATS_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'get_stats',
+    description: 'Получить статистику по времени за любой период. Вызывай когда Даша спрашивает о статистике, прогрессе, результатах за прошлую неделю, месяц или конкретные даты.',
+    parameters: {
+      type: 'object',
+      properties: {
+        start_date: { type: 'string', description: 'Начало периода YYYY-MM-DD' },
+        end_date: { type: 'string', description: 'Конец периода YYYY-MM-DD (включительно)' },
+      },
+      required: ['start_date', 'end_date'],
+    },
+  },
+}
+
+const GET_DIARY_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'get_diary',
+    description: 'Получить записи дневника за любой период: победы, мысли, цели, рефлексии. Вызывай когда Даша просит показать свои записи, победы, мысли по теме.',
+    parameters: {
+      type: 'object',
+      properties: {
+        start_date: { type: 'string', description: 'Начало периода YYYY-MM-DD' },
+        end_date: { type: 'string', description: 'Конец периода YYYY-MM-DD' },
+        field: {
+          type: 'string',
+          enum: ['all', 'achieved', 'not_achieved', 'thoughts', 'goals', 'reflections'],
+          description: 'Что показать: all=всё, или конкретное поле',
+        },
+      },
+      required: ['start_date', 'end_date'],
+    },
+  },
+}
+
+const GET_TIMELINE_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'get_timeline',
+    description: 'Получить полную ленту активностей за любой конкретный день (не сегодня — для сегодня данные уже в контексте).',
+    parameters: {
+      type: 'object',
+      properties: {
+        date: { type: 'string', description: 'Дата YYYY-MM-DD' },
+      },
+      required: ['date'],
+    },
+  },
+}
+
+const SAVE_PREF_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'save_pref',
+    description: 'Запомнить настройку или инструкцию Даши навсегда — сохраняется между сессиями. Вызывай когда она говорит «запомни», «с этого момента», «каждый [день недели] присылай», «по умолчанию». Для еженедельного отчёта: key="schedule_thu" (mon/tue/wed/thu/fri/sat/sun), value=описание что прислать.',
+    parameters: {
+      type: 'object',
+      properties: {
+        key: { type: 'string', description: 'Ключ snake_case: schedule_thu, report_format, morning_focus, и т.д.' },
+        value: { type: 'string', description: 'Значение — текст инструкции или параметра. Для удаления настройки — передай пустую строку.' },
+      },
+      required: ['key', 'value'],
+    },
+  },
+}
+
 const SAVE_THOUGHT_TOOL = {
   type: 'function' as const,
   function: {
@@ -454,7 +642,7 @@ async function aiReply(userText: string, today: string, history: { role: string;
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgs, tools: [LOG_TOOL, SAVE_THOUGHT_TOOL, DIARY_TOOL, DELETE_TOOL], tool_choice: 'auto', max_tokens: 400, temperature: 0.85 }),
+    body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgs, tools: [LOG_TOOL, SAVE_THOUGHT_TOOL, DIARY_TOOL, DELETE_TOOL, GET_STATS_TOOL, GET_DIARY_TOOL, GET_TIMELINE_TOOL, SAVE_PREF_TOOL], tool_choice: 'auto', max_tokens: 600, temperature: 0.85 }),
   })
   const json = await resp.json()
   const msg = json.choices?.[0]?.message
@@ -476,6 +664,23 @@ async function aiReply(userText: string, today: string, history: { role: string;
         } else if (tc.function.name === 'save_diary_thought') {
           await saveDiaryField(today, args.field, args.text)
           toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'saved' })
+        } else if (tc.function.name === 'get_stats') {
+          const statsText = await computeStatsForPeriod(args.start_date, args.end_date)
+          toolResults.push({ role: 'tool', tool_call_id: tc.id, content: statsText })
+        } else if (tc.function.name === 'get_diary') {
+          const diaryText = await getDiaryEntries(args.start_date, args.end_date, args.field)
+          toolResults.push({ role: 'tool', tool_call_id: tc.id, content: diaryText })
+        } else if (tc.function.name === 'get_timeline') {
+          const timelineText = await getTimelineForDate(args.date)
+          toolResults.push({ role: 'tool', tool_call_id: tc.id, content: timelineText })
+        } else if (tc.function.name === 'save_pref') {
+          if (args.value) {
+            await savePref(args.key, args.value)
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `saved: ${args.key}=${args.value}` })
+          } else {
+            await db.from('user_prefs').delete().eq('key', args.key)
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `deleted: ${args.key}` })
+          }
         } else if (tc.function.name === 'delete_activity') {
           const { data: toDelete } = await db.from('activity_blocks').select('id')
             .eq('date', today).eq('activity_id', args.activity_id)
