@@ -89,9 +89,11 @@ async function saveReflection(date: string, focus: string, text: string) {
   const prev = (data as any)?.reflections ?? []
   const updated = [...prev, { focus, text: text.trim(), time: ts }]
   if (data) {
-    await db.from('diary_entries').update({ reflections: updated }).eq('date', date)
+    const { error } = await db.from('diary_entries').update({ reflections: updated }).eq('date', date)
+    if (error) throw new Error(error.message)
   } else {
-    await db.from('diary_entries').insert({ date, reflections: updated })
+    const { error } = await db.from('diary_entries').insert({ date, reflections: updated })
+    if (error) throw new Error(error.message)
   }
 }
 
