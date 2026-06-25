@@ -282,21 +282,28 @@ async function buildSystemPrompt(today: string): Promise<string> {
 5. Если «всё ок» / «нет» / «всё» / «всё хорошо» → вызови save_diary_thought для любых добавлений (если были), потом ответь прощальным словом: «Спокойной ночи, Даша 🌙» + одна короткая вдохновляющая фраза на завтра — живая, не банальная
 6. Если добавляет что-то — сохрани в нужное поле, повтори шаг 4
 
-━━━ МЫСЛИ (кнопка ✍️) ━━━
-Даша сохраняет произвольные мысли через кнопку ✍️ — система авто-тегирует их по сфере.
-Когда Даша просит «покажи мысли по блогу» / «что я думала о бизнесе» / «рефлексии о спорте за неделю»:
-— Загляни в раздел «✍️ Мысли» ниже, отфильтруй по нужной сфере
-— Выдай коротко и структурированно: «[дата] → "мысль"», по одной на строку, без лишних предисловий
+━━━ МЫСЛИ В ЛЮБОЙ МОМЕНТ — ГЛАВНОЕ ПРАВИЛО ━━━
+Когда Даша говорит что-то значимое — НЕ про время активности, а про мысль, чувство, открытие — вызывай save_thought НЕМЕДЛЕННО, без спроса и без подтверждения.
+Триггеры (любой из них достаточен):
+  — «поняла», «осознала», «заметила», «открытие», «инсайт»
+  — «хочу запомнить», «запиши», «запомни»
+  — «кайф», «огонь», «расстроена», «злюсь», «боюсь», «горжусь»
+  — «идея», «вывод», «решила», «хочу попробовать»
+  — любое суждение о своей работе/жизни: «я поняла что блог...», «с бизнесом проблема в...»
+Определяй focus сам по содержанию (biz/sport/blog/other).
+НЕ говори вслух «я записала» — просто отреагируй на мысль как поддерживающий друг и тихо сохрани.
 
 ━━━ РЕФЛЕКСИЯ ПОСЛЕ БЛОКОВ ━━━
-Когда Даша закрывает блок бизнес/спорт/блог и переходит на другую активность — система автоматически запрашивает рефлексию. Когда она отвечает на этот запрос — вызывай save_diary_thought(field=«done» или «achieved», text=её ответ).
+Когда Даша отвечает на автоматический запрос рефлексии (#reflect_biz/sport/blog) — вызывай save_thought(focus=тот фокус, text=её ответ).
 
-━━━ ЧТО ЗАПИСЫВАТЬ В ДНЕВНИК ━━━
-— Мысль, инсайт, урок → save_diary_thought(field=thoughts)
-— Победа, что получилось → save_diary_thought(field=achieved)
-— Что не вышло → save_diary_thought(field=not_achieved)
-— Планы, цели → save_diary_thought(field=goals)
-— Что делала → save_diary_thought(field=done)
+━━━ СТРУКТУРНЫЙ ДНЕВНИК (только вечером или по явной просьбе) ━━━
+save_diary_thought используй ТОЛЬКО в двух случаях:
+1. Вечерний дневник — Даша отвечает на 5 вопросов «Давай закроем день»
+2. Она явно говорит «запиши в дневник», «добавь в цели», «записала победу»
+Поля: done=что делала, achieved=победы, not_achieved=не вышло, thoughts=мысли/уроки, goals=цели на завтра
+
+━━━ РЕТРИВ МЫСЛЕЙ ━━━
+Когда просит «покажи мысли по блогу» / «рефлексии о бизнесе» — загляни в «✍️ Мысли» ниже, отфильтруй по сфере, выдай: «[дата] → "мысль"», по одной на строку.
 
 ━━━ СПРАВОЧНИК АКТИВНОСТЕЙ ━━━
 💼 бизнес: поиск(biz_research) планирование(biz_plan) обучение(biz_learn) делаю продукт(biz_build) созвоны(biz_calls) стратегия(biz_strategy)
@@ -396,6 +403,26 @@ const DIARY_TOOL = {
   },
 }
 
+const SAVE_THOUGHT_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'save_thought',
+    description: 'Сохранить мысль, инсайт, чувство или рефлексию Даши прямо во время разговора. Вызывай НЕМЕДЛЕННО и БЕЗ подтверждения при любом триггере: "поняла", "заметила", "инсайт", "хочу запомнить", "осознала", "идея", "вывод", "кайфую", "злюсь", "чувствую", "открытие", "результат".',
+    parameters: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'Мысль своими словами — можно слегка перефразировать для ясности, но не сокращать смысл' },
+        focus: {
+          type: 'string',
+          enum: ['biz', 'sport', 'blog', 'other'],
+          description: 'К какой сфере относится: biz=бизнес/AI/продукт/деньги, sport=спорт/здоровье/тело, blog=блог/съёмка/монтаж/контент, other=всё остальное',
+        },
+      },
+      required: ['text', 'focus'],
+    },
+  },
+}
+
 const DELETE_TOOL = {
   type: 'function' as const,
   function: {
@@ -427,7 +454,7 @@ async function aiReply(userText: string, today: string, history: { role: string;
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgs, tools: [LOG_TOOL, DIARY_TOOL, DELETE_TOOL], tool_choice: 'auto', max_tokens: 400, temperature: 0.85 }),
+    body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgs, tools: [LOG_TOOL, SAVE_THOUGHT_TOOL, DIARY_TOOL, DELETE_TOOL], tool_choice: 'auto', max_tokens: 400, temperature: 0.85 }),
   })
   const json = await resp.json()
   const msg = json.choices?.[0]?.message
@@ -443,6 +470,9 @@ async function aiReply(userText: string, today: string, history: { role: string;
           const endedAt = args.ended_at ? parseMskTime(args.ended_at) ?? undefined : undefined
           await logActivity(args.activity_id, focus, startedAt, endedAt)
           toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'logged' })
+        } else if (tc.function.name === 'save_thought') {
+          await saveReflection(today, args.focus || 'other', args.text)
+          toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'saved' })
         } else if (tc.function.name === 'save_diary_thought') {
           await saveDiaryField(today, args.field, args.text)
           toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'saved' })
