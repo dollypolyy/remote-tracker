@@ -984,20 +984,22 @@ ${flag(hours.blog, 2)} 🎬 блог — ${fmt(hours.blog)} / 2 ч
 
     // обычный текст → AI-диалог (как голосовые)
     if (!OPENAI_API_KEY) {
-      const open = await getOpenBlock(today)
-      await tg('sendMessage', { chat_id: chatId, text: '⏰ Что делаешь?', reply_markup: focusKeyboard(open?.activity_id) })
+      await tg('sendMessage', { chat_id: chatId, text: '⚠️ OpenAI ключ не настроен' })
       return
     }
     await tg('sendChatAction', { chat_id: chatId, action: 'typing' })
-    const [savedFocus, history] = await Promise.all([
-      extractAndSaveThought(text, today),
-      getChatHistory(today),
-    ])
-    const userMsg = savedFocus
-      ? `${text}\n[мысль уже сохранена в дневник → ${savedFocus}]`
-      : text
+    // fire-and-forget — не блокируем основной поток (иначе 3 запроса = timeout)
+    extractAndSaveThought(text, today).catch(() => {})
+    const history = await getChatHistory(today)
     await saveChatMsg(today, 'user', text)
-    const reply = await aiReply(userMsg, today, history)
+    let reply: string
+    try {
+      reply = await aiReply(text, today, history)
+    } catch (e) {
+      console.error('aiReply text error:', e)
+      await tg('sendMessage', { chat_id: chatId, text: '⚠️ Ошибка AI — попробуй ещё раз' })
+      return
+    }
     await saveChatMsg(today, 'assistant', reply)
     await tg('sendMessage', { chat_id: chatId, text: reply })
     return
