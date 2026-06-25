@@ -222,6 +222,35 @@ async function getTimelineForDate(date: string): Promise<string> {
   return `Лента ${date}:\n${lines.join('\n')}`
 }
 
+// ── Авто-извлечение мысли (параллельно с основным ответом) ──────
+// Отдельный быстрый вызов: определяет мысль до aiReply, гарантирует сохранение
+async function extractAndSaveThought(text: string, today: string): Promise<string | null> {
+  if (!OPENAI_API_KEY) return null
+  try {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{
+          role: 'system',
+          content: 'Determine if this message contains a personal thought, reflection, feeling, insight, or observation worth saving to a diary.\nNOT a thought: requests to log activity with specific times ("с 15 до 16"), questions about data/stats, short confirmations ("да","нет","ок"), greetings.\nIS a thought: opinions, feelings, insights, ideas, lessons, observations about life/work/self.\nReply ONLY with valid JSON: {"is_thought": boolean, "focus": "biz|sport|blog|other", "text": "the thought in first person, cleaned up"}',
+        }, { role: 'user', content: text }],
+        response_format: { type: 'json_object' },
+        max_tokens: 150,
+        temperature: 0,
+      }),
+    })
+    const json = await resp.json()
+    const result = JSON.parse(json.choices?.[0]?.message?.content || '{}')
+    if (result.is_thought && result.text) {
+      await saveReflection(today, result.focus || 'other', result.text)
+      return result.focus || 'other'
+    }
+  } catch { /* не критично */ }
+  return null
+}
+
 // ── AI-диалог (голосовые сообщения) ──────────────────────────
 
 async function transcribeVoice(fileId: string): Promise<{ text: string; error?: string }> {
@@ -798,9 +827,17 @@ async function handleUpdate(update: any) {
       await handleThought(chatId, transcript, today)
       return
     }
-    const history = await getChatHistory(today)
+    // Параллельно: авто-извлечь мысль + загрузить историю
+    const [savedFocus, history] = await Promise.all([
+      extractAndSaveThought(transcript, today),
+      getChatHistory(today),
+    ])
+    // Если мысль сохранена — сообщаем Will чтобы не говорил «нет записей»
+    const userMsg = savedFocus
+      ? `${transcript}\n[мысль уже сохранена в дневник → ${savedFocus}]`
+      : transcript
     await saveChatMsg(today, 'user', transcript)
-    const reply = await aiReply(transcript, today, history)
+    const reply = await aiReply(userMsg, today, history)
     await saveChatMsg(today, 'assistant', reply)
     await tg('sendMessage', { chat_id: chatId, text: reply })
     return
@@ -952,9 +989,15 @@ ${flag(hours.blog, 2)} 🎬 блог — ${fmt(hours.blog)} / 2 ч
       return
     }
     await tg('sendChatAction', { chat_id: chatId, action: 'typing' })
-    const history = await getChatHistory(today)
+    const [savedFocus, history] = await Promise.all([
+      extractAndSaveThought(text, today),
+      getChatHistory(today),
+    ])
+    const userMsg = savedFocus
+      ? `${text}\n[мысль уже сохранена в дневник → ${savedFocus}]`
+      : text
     await saveChatMsg(today, 'user', text)
-    const reply = await aiReply(text, today, history)
+    const reply = await aiReply(userMsg, today, history)
     await saveChatMsg(today, 'assistant', reply)
     await tg('sendMessage', { chat_id: chatId, text: reply })
     return
