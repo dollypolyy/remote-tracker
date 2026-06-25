@@ -175,7 +175,7 @@ export async function computeStatsForPeriod(startISO: string, endISO: string): P
 🎯 в фокусе суммарно: ${focusTotal.toFixed(1)} ч`
 }
 
-async function getDiaryEntries(startISO: string, endISO: string, field?: string): Promise<string> {
+export async function getDiaryEntries(startISO: string, endISO: string, field?: string): Promise<string> {
   const { data } = await db
     .from('diary_entries')
     .select('date, achieved, not_achieved, thoughts, goals, reflections')
@@ -371,10 +371,20 @@ async function buildSystemPrompt(today: string): Promise<string> {
 — Лента любого прошлого дня → get_timeline(date)
 Для дат: «прошлая неделя» = последние 7 дней, «этот месяц» = с начала месяца.
 
-━━━ ПАМЯТЬ И НАСТРОЙКИ ━━━
-save_pref запоминает навсегда — вызывай когда Даша говорит «запомни», «каждый [день] присылай», «по умолчанию», «с этого момента».
-Для еженедельных отчётов: save_pref(key="schedule_[mon/tue/wed/thu/fri/sat/sun]", value="описание что прислать")
-Каждое утро того дня — отчёт отправляется автоматически.
+━━━ РАСПИСАНИЯ (автономные задачи) ━━━
+Will может создавать, просматривать и удалять расписания САМОСТОЯТЕЛЬНО — без участия Даши и без изменения кода.
+— Создать задачу → create_schedule(label, weekdays, hour_msk, prompt)
+— Список активных → list_schedules()
+— Удалить → delete_schedule(label)
+Примеры использования:
+  «каждый четверг в 9 утра присылай статистику недели»
+    → create_schedule(label="Недельный отчёт", weekdays=["thu"], hour_msk=9, prompt="Отправь статистику недели по всем фокусам с инсайтом")
+  «каждый день в 20:00 напоминай о дневнике»
+    → create_schedule(label="Напоминание дневник", weekdays=["*"], hour_msk=20, prompt="Напомни Даше заполнить дневник")
+Подтверди после создания: «Настроила! Буду присылать каждый [день] в [время]»
+
+━━━ НАСТРОЙКИ ━━━
+save_pref — для простых предпочтений (не расписаний): формат ответов, стиль, единицы.
 Текущие настройки Даши — в конце этого промпта.
 
 ━━━ ЗАПИСЬ АКТИВНОСТИ: ПРАВИЛО ПОДТВЕРЖДЕНИЯ ━━━
@@ -579,14 +589,56 @@ const SAVE_PREF_TOOL = {
   type: 'function' as const,
   function: {
     name: 'save_pref',
-    description: 'Запомнить настройку или инструкцию Даши навсегда — сохраняется между сессиями. Вызывай когда она говорит «запомни», «с этого момента», «каждый [день недели] присылай», «по умолчанию». Для еженедельного отчёта: key="schedule_thu" (mon/tue/wed/thu/fri/sat/sun), value=описание что прислать.',
+    description: 'Запомнить простую настройку или предпочтение (НЕ для расписаний — для них используй create_schedule). Например: формат ответов, стиль приветствия.',
     parameters: {
       type: 'object',
       properties: {
-        key: { type: 'string', description: 'Ключ snake_case: schedule_thu, report_format, morning_focus, и т.д.' },
-        value: { type: 'string', description: 'Значение — текст инструкции или параметра. Для удаления настройки — передай пустую строку.' },
+        key: { type: 'string', description: 'Ключ snake_case: report_format, greeting_style, и т.д.' },
+        value: { type: 'string', description: 'Значение. Пустая строка — удалить настройку.' },
       },
       required: ['key', 'value'],
+    },
+  },
+}
+
+const CREATE_SCHEDULE_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'create_schedule',
+    description: 'Создать автоматическую задачу по расписанию — Will выполнит её сам в нужный день и час без участия Даши. Используй когда она говорит «каждый [день] в [время] делай X», «автоматически каждую неделю», «напоминай по [дням]».',
+    parameters: {
+      type: 'object',
+      properties: {
+        label:    { type: 'string', description: 'Короткое название: «Недельный отчёт», «Напоминание о спорте»' },
+        weekdays: { type: 'array', items: { type: 'string' }, description: 'Дни: ["*"]=каждый день, или ["mon","thu"]. Для «каждый четверг» → ["thu"]' },
+        hour_msk: { type: 'number', description: 'Час по МСК (0–23). По умолчанию 9.' },
+        prompt:   { type: 'string', description: 'Что сделать: «Отправь статистику недели по всем фокусам с инсайтом»' },
+      },
+      required: ['label', 'weekdays', 'hour_msk', 'prompt'],
+    },
+  },
+}
+
+const LIST_SCHEDULES_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'list_schedules',
+    description: 'Показать все активные запланированные задачи. Вызывай когда Даша спрашивает «что у нас запланировано», «что ты делаешь автоматически».',
+    parameters: { type: 'object', properties: {} },
+  },
+}
+
+const DELETE_SCHEDULE_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'delete_schedule',
+    description: 'Удалить запланированную задачу по названию.',
+    parameters: {
+      type: 'object',
+      properties: {
+        label: { type: 'string', description: 'Название задачи (или его часть)' },
+      },
+      required: ['label'],
     },
   },
 }
@@ -642,7 +694,7 @@ async function aiReply(userText: string, today: string, history: { role: string;
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgs, tools: [LOG_TOOL, SAVE_THOUGHT_TOOL, DIARY_TOOL, DELETE_TOOL, GET_STATS_TOOL, GET_DIARY_TOOL, GET_TIMELINE_TOOL, SAVE_PREF_TOOL], tool_choice: 'auto', max_tokens: 600, temperature: 0.85 }),
+    body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgs, tools: [LOG_TOOL, SAVE_THOUGHT_TOOL, DIARY_TOOL, DELETE_TOOL, GET_STATS_TOOL, GET_DIARY_TOOL, GET_TIMELINE_TOOL, SAVE_PREF_TOOL, CREATE_SCHEDULE_TOOL, LIST_SCHEDULES_TOOL, DELETE_SCHEDULE_TOOL], tool_choice: 'auto', max_tokens: 600, temperature: 0.85 }),
   })
   const json = await resp.json()
   const msg = json.choices?.[0]?.message
@@ -680,6 +732,35 @@ async function aiReply(userText: string, today: string, history: { role: string;
           } else {
             await db.from('user_prefs').delete().eq('key', args.key)
             toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `deleted: ${args.key}` })
+          }
+        } else if (tc.function.name === 'create_schedule') {
+          try {
+            await db.from('scheduled_tasks').insert({
+              label: args.label,
+              weekdays: args.weekdays,
+              hour_msk: args.hour_msk ?? 9,
+              prompt: args.prompt,
+              active: true,
+            })
+            const days = (args.weekdays as string[]).join(', ')
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `scheduled: "${args.label}" — ${days} в ${args.hour_msk ?? 9}:00 МСК` })
+          } catch (e) {
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `error: ${e}` })
+          }
+        } else if (tc.function.name === 'list_schedules') {
+          try {
+            const { data: tasks } = await db.from('scheduled_tasks').select('label, weekdays, hour_msk, prompt, active').eq('active', true).order('label')
+            const list = (tasks || []).map((t: any) => `• ${t.label} — ${(t.weekdays as string[]).join('+')} в ${t.hour_msk}:00 МСК: ${t.prompt.slice(0, 60)}`).join('\n')
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: list || 'Нет активных расписаний' })
+          } catch {
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'Нет активных расписаний' })
+          }
+        } else if (tc.function.name === 'delete_schedule') {
+          try {
+            await db.from('scheduled_tasks').update({ active: false }).ilike('label', `%${args.label}%`)
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `deleted: ${args.label}` })
+          } catch {
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'not found' })
           }
         } else if (tc.function.name === 'delete_activity') {
           const { data: toDelete } = await db.from('activity_blocks').select('id')
