@@ -945,13 +945,18 @@ ${flag(hours.blog, 2)} 🎬 блог — ${fmt(hours.blog)} / 2 ч
       return
     }
 
-    // обычное сообщение → показать опрос
-    const open = await getOpenBlock(today)
-    await tg('sendMessage', {
-      chat_id: chatId,
-      text: '⏰ Что делаешь?',
-      reply_markup: focusKeyboard(open?.activity_id),
-    })
+    // обычный текст → AI-диалог (как голосовые)
+    if (!OPENAI_API_KEY) {
+      const open = await getOpenBlock(today)
+      await tg('sendMessage', { chat_id: chatId, text: '⏰ Что делаешь?', reply_markup: focusKeyboard(open?.activity_id) })
+      return
+    }
+    await tg('sendChatAction', { chat_id: chatId, action: 'typing' })
+    const history = await getChatHistory(today)
+    await saveChatMsg(today, 'user', text)
+    const reply = await aiReply(text, today, history)
+    await saveChatMsg(today, 'assistant', reply)
+    await tg('sendMessage', { chat_id: chatId, text: reply })
     return
   }
 
