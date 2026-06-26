@@ -28,11 +28,15 @@ async function getOpenBlock(today: string) {
 // Предыдущий открытый блок закрывается этим же временем (раньше — значит он раньше и закончился).
 async function openBlock(activityId: string, focus: string, startedAt: Date) {
   const today = new Date().toISOString().slice(0, 10)
-  // Деdup: не создавать, если точно такой же блок уже есть в ±60 сек
+  // Если эта активность уже открыта — не закрывать и не создавать заново
+  const { data: alreadyOpen } = await db.from('activity_blocks').select('id')
+    .eq('date', today).eq('activity_id', activityId).is('ended_at', null).limit(1)
+  if (alreadyOpen && alreadyOpen.length > 0) return
+  // Деdup: не создавать, если точно такой же блок уже есть в ±90 сек
   const { data: dup } = await db.from('activity_blocks').select('id')
     .eq('date', today).eq('activity_id', activityId)
-    .gte('started_at', new Date(startedAt.getTime() - 60_000).toISOString())
-    .lte('started_at', new Date(startedAt.getTime() + 60_000).toISOString()).limit(1)
+    .gte('started_at', new Date(startedAt.getTime() - 90_000).toISOString())
+    .lte('started_at', new Date(startedAt.getTime() + 90_000).toISOString()).limit(1)
   if (dup && dup.length > 0) return
   await db
     .from('activity_blocks')

@@ -132,7 +132,10 @@ export function Home() {
   const currentAct   = currentBlock ? ACTIVITIES.find((a) => a.id === currentBlock.activity_id) : null
   const currentFocus = currentBlock ? FOCUSES[currentBlock.focus] : null
 
-  const blocks = stats?.blocks ?? []
+  const blocks = (stats?.blocks ?? []).filter(b => {
+    const dur = (b.ended_at ? +new Date(b.ended_at) : Date.now()) - +new Date(b.started_at)
+    return !b.ended_at || dur >= 60_000
+  })
 
   const todayISO = today.toISOString().slice(0, 10)
   const dayStart = +new Date(`${todayISO}T08:00:00+03:00`)
