@@ -109,10 +109,13 @@ async function trimOverlaps(today: string, startMs: number, endMs: number, excep
       await supabase.from('activity_blocks').delete().eq('id', b.id)
     } else if (bs < startMs && be > endMs) {              // охватывает новый → разрезать
       await supabase.from('activity_blocks').update({ ended_at: new Date(startMs).toISOString() }).eq('id', b.id)
-      await supabase.from('activity_blocks').insert({
-        date: today, started_at: new Date(endMs).toISOString(), ended_at: b.ended_at,
-        activity_id: b.activity_id, focus: b.focus,
-      })
+      // Открытый блок при onlyOpen=true не разрезаем: правая часть = новая активность
+      if (!onlyOpen || b.ended_at != null) {
+        await supabase.from('activity_blocks').insert({
+          date: today, started_at: new Date(endMs).toISOString(), ended_at: b.ended_at,
+          activity_id: b.activity_id, focus: b.focus,
+        })
+      }
     } else if (bs < startMs) {                            // пересекает слева → обрезать конец
       await supabase.from('activity_blocks').update({ ended_at: new Date(startMs).toISOString() }).eq('id', b.id)
     } else {                                              // пересекает справа → обрезать начало
