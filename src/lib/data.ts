@@ -31,14 +31,21 @@ export async function getTodayStats(): Promise<DayStats> {
 
   // Нормализация: блоки не пересекаются. Каждый заканчивается там,
   // где начинается следующий. Открытым остаётся только последний.
-  const normalized: ActivityBlock[] = raw.map((b, i) => {
+  // Если открытый блок не последний — закрываем его и в БД тоже.
+  const normalized: ActivityBlock[] = []
+  for (let i = 0; i < raw.length; i++) {
+    const b = raw[i]
     const isLast = i === raw.length - 1
     const nextStart = raw[i + 1] ? +new Date(raw[i + 1].started_at) : null
     let endMs: number | null = b.ended_at ? +new Date(b.ended_at) : null
-    if (endMs == null && !isLast) endMs = nextStart            // закрыть «висящий» открытый блок
-    if (nextStart != null && endMs != null && endMs > nextStart) endMs = nextStart // подрезать наложение
-    return { ...b, ended_at: endMs != null ? new Date(endMs).toISOString() : null }
-  })
+    if (endMs == null && !isLast && nextStart != null) {
+      endMs = nextStart
+      // Висящий открытый блок — закрываем сразу в БД
+      await supabase.from('activity_blocks').update({ ended_at: new Date(endMs).toISOString() }).eq('id', b.id)
+    }
+    if (nextStart != null && endMs != null && endMs > nextStart) endMs = nextStart
+    normalized.push({ ...b, ended_at: endMs != null ? new Date(endMs).toISOString() : null })
+  }
 
   // Слияние соседних блоков с одной и той же активностью (и в базе тоже — awaited)
   const blocks: ActivityBlock[] = []
