@@ -14,22 +14,32 @@ export default async function handler(req: any, res: any) {
   }
 
   const today = now.toISOString().slice(0, 10)
-  const { data } = await db
+  // Для проверки «недавно логировали» — любой блок (открытый или закрытый)
+  const { data: recentBlock } = await db
     .from('activity_blocks')
-    .select('activity_id, started_at')
+    .select('started_at')
     .eq('date', today)
     .order('started_at', { ascending: false })
     .limit(1)
 
   // Пропустить опрос, если активность залогирована менее 28 минут назад
-  if (data?.[0]?.started_at) {
-    const minsAgo = (Date.now() - +new Date(data[0].started_at)) / 60_000
+  if (recentBlock?.[0]?.started_at) {
+    const minsAgo = (Date.now() - +new Date(recentBlock[0].started_at)) / 60_000
     if (minsAgo < 28) {
       return res.status(200).json({ skipped: 'recent activity', minsAgo: minsAgo.toFixed(1) })
     }
   }
 
-  const currentActId: string | null = (data?.[0] as any)?.activity_id ?? null
+  // «Продолжаю» — только если есть реально открытый блок (без ended_at)
+  const { data: openBlock } = await db
+    .from('activity_blocks')
+    .select('activity_id')
+    .eq('date', today)
+    .is('ended_at', null)
+    .order('started_at', { ascending: false })
+    .limit(1)
+
+  const currentActId: string | null = openBlock?.[0]?.activity_id ?? null
   const timeStr = now.toLocaleTimeString('ru-RU', {
     hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow',
   })

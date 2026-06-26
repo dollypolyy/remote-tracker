@@ -414,6 +414,11 @@ async function buildSystemPrompt(today: string): Promise<string> {
   3. Жди «да/верно/ок» → log_activity
   Исключение — записывать сразу: «сейчас делаю X» (открытый блок без конца)
 
+⚠️ ПРАВИЛО ended_at:
+— НЕ передавай ended_at если Даша сейчас занимается этим («начала 15 минут назад», «занималась с утра», «учусь»). Передай ТОЛЬКО started_at — блок остаётся открытым.
+— ended_at передаётся ТОЛЬКО если Даша указала явное ПРОШЕДШЕЕ время конца («делала с 10 до 11», «закончила в 12:30»).
+— НЕ вызывай log_activity для предыдущей активности чтобы её закрыть — система закрывает её автоматически при открытии новой.
+
 ▶ ТИП В — ЗАПРОС ДАННЫХ
 «покажи статистику», «что в дневнике», «лента вчера», «сколько часов за неделю»
 ДЕЙСТВИЕ: get_stats / get_diary / get_timeline — вызывай, не говори «нет доступа»
@@ -470,11 +475,18 @@ async function logActivity(activityId: string, focus: string, startedAt: Date, e
       [startedAt, endedAt] = [endedAt, startedAt]
     }
     if (endedAt.getTime() - startedAt.getTime() < 60_000) return // слишком короткий блок
-    // Деdup: не создавать, если такой блок уже есть
+    // Если такой же блок уже открыт — просто закрываем его, не создаём дубликат
+    const { data: openDup } = await db.from('activity_blocks').select('id')
+      .eq('date', today).eq('activity_id', activityId).is('ended_at', null).limit(1)
+    if (openDup && openDup.length > 0) {
+      await db.from('activity_blocks').update({ ended_at: endedAt.toISOString() }).eq('id', openDup[0].id)
+      return
+    }
+    // Деdup: не создавать, если такой блок уже есть (±90 сек)
     const { data: dup } = await db.from('activity_blocks').select('id')
       .eq('date', today).eq('activity_id', activityId)
-      .gte('started_at', new Date(startedAt.getTime() - 60_000).toISOString())
-      .lte('started_at', new Date(startedAt.getTime() + 60_000).toISOString()).limit(1)
+      .gte('started_at', new Date(startedAt.getTime() - 90_000).toISOString())
+      .lte('started_at', new Date(startedAt.getTime() + 90_000).toISOString()).limit(1)
     if (dup && dup.length > 0) return
     // Ретроактивный блок — закрываем предыдущие открытые, что начались раньше
     await db.from('activity_blocks')
