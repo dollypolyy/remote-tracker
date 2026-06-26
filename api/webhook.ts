@@ -728,6 +728,7 @@ async function aiReply(userText: string, today: string, history: { role: string;
   const msg = json.choices?.[0]?.message
 
   if (msg?.tool_calls?.length) {
+    console.log('[Will tools]', msg.tool_calls.map((tc: any) => `${tc.function.name}(${tc.function.arguments})`).join(' | '))
     const toolResults: any[] = []
     for (const tc of msg.tool_calls) {
       try {
