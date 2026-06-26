@@ -38,11 +38,17 @@ async function openBlock(activityId: string, focus: string, startedAt: Date) {
     .gte('started_at', new Date(startedAt.getTime() - 90_000).toISOString())
     .lte('started_at', new Date(startedAt.getTime() + 90_000).toISOString()).limit(1)
   if (dup && dup.length > 0) return
-  await db
-    .from('activity_blocks')
-    .update({ ended_at: startedAt.toISOString() })
-    .eq('date', today)
-    .is('ended_at', null)
+  // Открытые блоки < 1 мин — удалить (артефакт), остальные — закрыть
+  const { data: openBlocks } = await db.from('activity_blocks')
+    .select('id, started_at').eq('date', today).is('ended_at', null)
+  for (const ob of (openBlocks || [])) {
+    const age = startedAt.getTime() - +new Date(ob.started_at)
+    if (age < 60_000) {
+      await db.from('activity_blocks').delete().eq('id', ob.id)
+    } else {
+      await db.from('activity_blocks').update({ ended_at: startedAt.toISOString() }).eq('id', ob.id)
+    }
+  }
   await db.from('activity_blocks').insert({
     date: today,
     started_at: startedAt.toISOString(),

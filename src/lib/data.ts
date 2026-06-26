@@ -135,7 +135,14 @@ export async function startActivity(activityId: string, focus: FocusKey, started
     .gte('started_at', new Date(startedAt.getTime() - 30_000).toISOString())
     .lte('started_at', new Date(startedAt.getTime() + 30_000).toISOString()).limit(1)
   if (recent && recent.length > 0) return
-  // onlyOpen=true: не удалять явно заполненные закрытые блоки (дорога и т.п.)
+  // Открытые блоки < 1 мин — удалить (артефакт), остальные — закрыть через trimOverlaps
+  const { data: openBlocks } = await supabase.from('activity_blocks')
+    .select('id, started_at').eq('date', today).is('ended_at', null)
+  for (const ob of (openBlocks || []) as { id: string; started_at: string }[]) {
+    const age = startedAt.getTime() - +new Date(ob.started_at)
+    if (age < 60_000) await supabase.from('activity_blocks').delete().eq('id', ob.id)
+  }
+  // onlyOpen=true: не трогать явно заполненные закрытые блоки (дорога и т.п.)
   await trimOverlaps(today, startedAt.getTime(), now, undefined, true)
   const { error } = await supabase.from('activity_blocks').insert({
     date: today,
