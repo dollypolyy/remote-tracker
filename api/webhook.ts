@@ -25,10 +25,10 @@ async function getOpenBlock(today: string) {
 }
 
 // Открыть новый блок с заданным временем начала.
-// Предыдущий открытый блок закрывается этим же временем (раньше — значит он раньше и закончился).
+// Если уже есть более новые открытые блоки — вставляем закрытый блок (не трогаем текущую активность).
 async function openBlock(activityId: string, focus: string, startedAt: Date) {
   const today = new Date().toISOString().slice(0, 10)
-  // Если эта активность уже открыта — не закрывать и не создавать заново
+  // Если эта активность уже открыта — ничего не делать
   const { data: alreadyOpen } = await db.from('activity_blocks').select('id')
     .eq('date', today).eq('activity_id', activityId).is('ended_at', null).limit(1)
   if (alreadyOpen && alreadyOpen.length > 0) return
@@ -38,9 +38,27 @@ async function openBlock(activityId: string, focus: string, startedAt: Date) {
     .gte('started_at', new Date(startedAt.getTime() - 90_000).toISOString())
     .lte('started_at', new Date(startedAt.getTime() + 90_000).toISOString()).limit(1)
   if (dup && dup.length > 0) return
-  // Открытые блоки < 1 мин — удалить (артефакт), остальные — закрыть
   const { data: openBlocks } = await db.from('activity_blocks')
     .select('id, started_at').eq('date', today).is('ended_at', null)
+  // Если уже есть более новые открытые блоки — мы «в прошлом»,
+  // создаём закрытый блок, не трогая текущую активность
+  const newerBlocks = (openBlocks || []).filter(
+    ob => +new Date(ob.started_at) > startedAt.getTime() + 30_000
+  )
+  if (newerBlocks.length > 0) {
+    const earliestNewerMs = Math.min(...newerBlocks.map(ob => +new Date(ob.started_at)))
+    if (earliestNewerMs - startedAt.getTime() >= 60_000) {
+      await db.from('activity_blocks').insert({
+        date: today,
+        started_at: startedAt.toISOString(),
+        ended_at: new Date(earliestNewerMs).toISOString(),
+        activity_id: activityId,
+        focus,
+      })
+    }
+    return
+  }
+  // Обычный путь: закрыть/удалить текущие открытые блоки и открыть новый
   for (const ob of (openBlocks || [])) {
     const age = startedAt.getTime() - +new Date(ob.started_at)
     if (age < 60_000) {
@@ -1013,13 +1031,18 @@ ${flag(hours.blog, 2)} 🎬 блог — ${fmt(hours.blog)} / 2 ч
       return
     }
     await tg('sendChatAction', { chat_id: chatId, action: 'typing' })
-    // fire-and-forget — не блокируем основной поток (иначе 3 запроса = timeout)
-    extractAndSaveThought(text, today).catch(() => {})
-    const history = await getChatHistory(today)
+    // Параллельно: авто-извлечь мысль + загрузить историю (без fire-and-forget — нужен результат)
+    const [savedFocus, history] = await Promise.all([
+      extractAndSaveThought(text, today),
+      getChatHistory(today),
+    ])
+    const userMsg = savedFocus
+      ? `${text}\n[мысль уже сохранена в дневник → ${savedFocus}]`
+      : text
     await saveChatMsg(today, 'user', text)
     let reply: string
     try {
-      reply = await aiReply(text, today, history)
+      reply = await aiReply(userMsg, today, history)
     } catch (e) {
       console.error('aiReply text error:', e)
       await tg('sendMessage', { chat_id: chatId, text: '⚠️ Ошибка AI — попробуй ещё раз' })
