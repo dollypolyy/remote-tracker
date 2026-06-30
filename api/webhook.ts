@@ -872,14 +872,15 @@ async function aiReply(userText: string, today: string, history: { role: string;
           const rawDate = args.due_date as string | undefined
           const due_date = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : null
           const base = { text: args.text, focus: args.focus || 'other', urgent: !!args.urgent, important: !!args.important }
-          // Попытка 1: с датой
+          // Попытка 1: полный инсерт с датой
           let res = await db.from('tasks').insert({ ...base, due_date }).select('id').single()
-          // Попытка 2: без даты (если проблема с due_date)
+          // Попытка 2: без даты
           if (res.error && due_date) res = await db.from('tasks').insert(base).select('id').single()
-          // Попытка 3: минимальный инсерт (только text)
-          if (res.error) res = await db.from('tasks').insert({ text: args.text, focus: args.focus || 'other', urgent: false, important: false }).select('id').single()
-          // Как log_activity — всегда говорим «сохранено», ошибку не прокидываем в GPT
-          toolResults.push({ role: 'tool', tool_call_id: tc.id, content: res.error ? `saved (fallback, err=${res.error.message})` : `saved id=${res.data?.id}${due_date ? ` due=${due_date}` : ''}` })
+          // Попытка 3: только text
+          if (res.error) res = await db.from('tasks').insert({ text: args.text }).select('id').single()
+          if (res.error) console.error('save_task all attempts failed:', res.error.message)
+          // Как log_activity — GPT всегда получает «saved», иначе он отказывается сохранять
+          toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `saved${res.data?.id ? ` id=${res.data.id}` : ''}${due_date ? ` due=${due_date}` : ''}` })
         } else if (tc.function.name === 'get_tasks') {
           const focus = args.focus && args.focus !== 'all' ? args.focus : null
           let q = db.from('tasks').select('text, focus, urgent, important, due_date').eq('done', false)
