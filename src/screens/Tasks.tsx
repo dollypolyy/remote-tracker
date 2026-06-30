@@ -104,6 +104,8 @@ export function Tasks() {
         )
       }
       setEdit(null); load()
+    } catch (err) {
+      alert('Ошибка сохранения: ' + (err as Error).message)
     } finally { setSaving(false) }
   }
 

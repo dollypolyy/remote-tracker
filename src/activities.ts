@@ -4,7 +4,7 @@
 export type FocusKey = 'biz' | 'sport' | 'blog' | 'other'
 
 // Цели дня
-export const FOCUS_GOAL_H = 8    // часов фокуса (бизнес + блог) в день
+export const FOCUS_GOAL_H = 8.5  // часов фокуса (бизнес + блог) в день
 export const SPORT_GOAL_H = 0.5  // часов спорта в день (обязательно)
 
 export interface Focus {

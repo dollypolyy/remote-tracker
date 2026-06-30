@@ -14,7 +14,10 @@ type TLItem =
   | { type: 'block'; start: number; end: number; block: ActivityBlock }
   | { type: 'gap'; start: number; end: number; toNow: boolean }
 
-const fmtH = (n: number) => n.toFixed(1).replace('.', ',')
+const fmtH = (n: number) => {
+  const r = Math.round(n * 10) / 10
+  return r % 1 === 0 ? String(r) : r.toFixed(1).replace('.', ',')
+}
 
 function buildTimeline(blocks: ActivityBlock[], dayStart: number, now: number): TLItem[] {
   const items: TLItem[] = []
@@ -38,8 +41,8 @@ const DOW_SHORT = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб']
 
 function FocusRing({ done, goal, bizH, blogH }: { done: number; goal: number; bizH: number; blogH: number }) {
   const pct = goal ? Math.min(1, done / goal) : 0
-  const r = 66
-  const stroke = 13
+  const r = 48
+  const stroke = 10
   const size = (r + stroke) * 2 + 4
   const c = 2 * Math.PI * r
   const totalFocus = bizH + blogH
@@ -174,105 +177,95 @@ export function Home() {
       <div className={s.focusCard}>
         <div className={s.focusOrb} aria-hidden="true" />
         <div className={s.focusLabel}>фокус сегодня</div>
-
-        <div className={s.focusCenter}>
+        <div className={s.focusTop}>
           <FocusRing done={focusH} goal={FOCUS_GOAL_H} bizH={bizH} blogH={blogH} />
-        </div>
-
-        {focusH > 0 ? (
-          <div className={s.focusSplit}>
-            <div className={s.focusSplitBar}>
-              {bizH > 0 && <div style={{ flex: bizH, background: 'var(--biz)', borderRadius: '5px 0 0 5px' }} />}
-              {blogH > 0 && <div style={{ flex: blogH, background: 'var(--blog)', borderRadius: bizH > 0 ? '0 5px 5px 0' : '5px' }} />}
-              {bizH === 0 && blogH === 0 && <div style={{ flex: 1, background: 'rgba(0,0,0,0.1)', borderRadius: '5px' }} />}
+          <div className={s.focusStats}>
+            <div className={s.focusStat}>
+              <span className={s.focusStatDot} style={{ background: 'var(--biz)' }} />
+              <span className={s.focusStatLabel}>бизнес</span>
+              <span className={s.focusStatVal}>{fmtH(bizH)} ч</span>
             </div>
-            <div className={s.focusSplitLabels}>
-              {bizH > 0 && <span><span className={s.dot} style={{ background: 'var(--biz)' }} />бизнес {fmtH(bizH)}ч</span>}
-              {blogH > 0 && <span><span className={s.dot} style={{ background: 'var(--blog)' }} />блог {fmtH(blogH)}ч</span>}
+            <div className={s.focusStat}>
+              <span className={s.focusStatDot} style={{ background: 'var(--blog)' }} />
+              <span className={s.focusStatLabel}>блог</span>
+              <span className={s.focusStatVal}>{fmtH(blogH)} ч</span>
             </div>
-          </div>
-        ) : (
-          <div className={s.focusSplit}>
-            <div className={s.focusSplitBar}>
-              <div style={{ flex: 1, background: 'rgba(0,0,0,0.07)', borderRadius: '5px' }} />
+            <div className={`${s.focusStat} ${sportDone ? s.focusStatSport : ''}`}>
+              <span className={s.focusStatIcon}>{sportDone ? '✅' : '▫️'}</span>
+              <span className={s.focusStatLabel}>спорт</span>
+              <span className={s.focusStatVal}>{fmtH(sportH)}/{fmtH(SPORT_GOAL_H)} ч</span>
             </div>
           </div>
-        )}
-
-        <div className={`${s.sportBadge} ${sportDone ? s.sportDone : ''}`}>
-          <span>{sportDone ? '✅' : '▫️'}</span>
-          <span>спорт · {fmtH(sportH)} / {fmtH(SPORT_GOAL_H)} ч</span>
-          {sportH > 0 && !sportDone && (
-            <span className={s.sportLeft}>ещё {fmtH(SPORT_GOAL_H - sportH)} ч</span>
-          )}
         </div>
       </div>
 
       {/* Карточка недели */}
-      {weekDays.length > 0 && (
-        <div className={s.weekCard}>
-          <div className={s.weekHead}>
-            <span className={s.weekTitle}>эта неделя</span>
-            <span className={s.weekTotal}>{weekDoneDays}/{weekDays.length} дн</span>
-          </div>
+      {weekDays.length > 0 && (() => {
+        const totalBiz   = weekStats?.totalBizH ?? 0
+        const totalBlog  = weekStats?.totalBlogH ?? 0
+        const totalSport = weekStats?.totalSportH ?? 0
+        const catMax = Math.max(totalBiz, totalBlog, totalSport, 1)
+        const maxDayH = Math.max(...weekDays.map(d => d.focusH), FOCUS_GOAL_H, 1)
+        return (
+          <div className={s.weekCard}>
+            <div className={s.weekHead}>
+              <span className={s.weekTitle}>эта неделя</span>
+              <span className={s.weekTotal}>{weekDoneDays}/{weekDays.length} дн</span>
+            </div>
 
-          {/* Сетка часов */}
-          <div className={s.weekNumbers}>
-            <div className={s.weekNumCell}>
-              <div className={s.weekNumH} style={{ color: 'var(--biz)' }}>
-                {fmtH(weekStats?.totalBizH ?? 0)} ч
-              </div>
-              <div className={s.weekNumLabel}>💼 бизнес</div>
-            </div>
-            <div className={s.weekNumCell}>
-              <div className={s.weekNumH} style={{ color: 'var(--blog)' }}>
-                {fmtH(weekStats?.totalBlogH ?? 0)} ч
-              </div>
-              <div className={s.weekNumLabel}>🎬 блог</div>
-            </div>
-            <div className={s.weekNumCell}>
-              <div className={s.weekNumH} style={{ color: 'var(--sport)' }}>
-                {fmtH(weekStats?.totalSportH ?? 0)} ч
-              </div>
-              <div className={s.weekNumLabel}>🏃 спорт</div>
-            </div>
-            <div className={s.weekNumCell}>
-              <div className={s.weekNumH}>{fmtH(weekFocusH)} ч</div>
-              <div className={s.weekNumLabel}>🎯 фокус всего</div>
-            </div>
-          </div>
-
-          {/* 7-дневная лента */}
-          <div className={s.weekStrip}>
-            {weekDays.map(d => {
-              const pct = Math.min(1, d.focusH / FOCUS_GOAL_H)
-              const isToday = d.date === todayISO
-              return (
-                <div key={d.date} className={`${s.weekDay} ${isToday ? s.weekToday : ''}`}>
-                  <div className={s.weekBarWrap}>
+            {/* Категорийные бары */}
+            <div className={s.weekCats}>
+              {[
+                { label: '💼 бизнес', color: 'var(--biz)',   val: totalBiz },
+                { label: '🎬 блог',   color: 'var(--blog)',  val: totalBlog },
+                { label: '🏃 спорт',  color: 'var(--sport)', val: totalSport },
+              ].map(({ label, color, val }) => (
+                <div key={label} className={s.weekCatRow}>
+                  <span className={s.weekCatLabel}>{label}</span>
+                  <div className={s.weekCatBarWrap}>
                     <div
-                      className={s.weekBar}
-                      style={{
-                        height: `${Math.round(pct * 100)}%`,
-                        background: pct >= 1 ? 'var(--biz)' : pct >= 0.5 ? 'var(--blog)' : 'rgba(0,0,0,0.15)',
-                      }}
+                      className={s.weekCatBar}
+                      style={{ width: `${Math.round(val / catMax * 100)}%`, background: color }}
                     />
                   </div>
-                  <div
-                    className={s.weekSportDot}
-                    style={{
-                      background: d.sportH >= SPORT_GOAL_H ? 'var(--sport)' : 'transparent',
-                      borderColor: d.sportH >= SPORT_GOAL_H ? 'var(--sport)' : 'rgba(0,0,0,0.18)',
-                    }}
-                  />
-                  <div className={s.weekDayLabel}>{DOW_SHORT[new Date(d.date + 'T12:00:00Z').getUTCDay()]}</div>
+                  <span className={s.weekCatVal}>{fmtH(val)} ч</span>
                 </div>
-              )
-            })}
+              ))}
+            </div>
+
+            {/* Гистограмма по дням */}
+            <div className={s.weekStrip}>
+              {weekDays.map(d => {
+                const pct = d.focusH / maxDayH
+                const isToday = d.date === todayISO
+                return (
+                  <div key={d.date} className={`${s.weekDay} ${isToday ? s.weekToday : ''}`}>
+                    <div className={s.weekDayH}>{d.focusH > 0 ? fmtH(d.focusH) : ''}</div>
+                    <div className={s.weekBarWrap}>
+                      <div
+                        className={s.weekBar}
+                        style={{
+                          height: `${Math.max(2, Math.round(pct * 100))}%`,
+                          background: d.focusH >= FOCUS_GOAL_H ? 'var(--biz)' : d.focusH >= FOCUS_GOAL_H * 0.5 ? 'var(--blog)' : 'rgba(0,0,0,0.15)',
+                        }}
+                      />
+                    </div>
+                    <div
+                      className={s.weekSportDot}
+                      style={{
+                        background: d.sportH >= SPORT_GOAL_H ? 'var(--sport)' : 'transparent',
+                        borderColor: d.sportH >= SPORT_GOAL_H ? 'var(--sport)' : 'rgba(0,0,0,0.18)',
+                      }}
+                    />
+                    <div className={s.weekDayLabel}>{DOW_SHORT[new Date(d.date + 'T12:00:00Z').getUTCDay()]}</div>
+                  </div>
+                )
+              })}
+            </div>
+            {weekCoach && <div className={s.weekHint}>{weekCoach}</div>}
           </div>
-          {weekCoach && <div className={s.weekHint}>{weekCoach}</div>}
-        </div>
-      )}
+        )
+      })()}
 
       {/* Сейчас */}
       <div className={s.now}>
