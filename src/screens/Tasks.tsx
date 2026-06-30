@@ -13,7 +13,9 @@ const FOCUS_BTNS: { key: FocusKey; label: string }[] = [
   { key: 'other', label: '🌿 прочее' },
 ]
 
-type Filter = 'all' | 'urgent' | 'important' | FocusKey
+type UrgencyFilter = 'all' | 'urgent' | 'not-urgent'
+type ImportanceFilter = 'all' | 'important' | 'not-important'
+type FocusFilter = 'all' | FocusKey
 
 const QUADRANTS = [
   { urgent: true,  important: true,  label: '🔴 срочно и важно' },
@@ -44,11 +46,13 @@ const emptyEdit = (): EditState => ({
 })
 
 export function Tasks() {
-  const [tasks, setTasks]       = useState<Task[]>([])
-  const [filter, setFilter]     = useState<Filter>('all')
-  const [showDone, setShowDone] = useState(false)
-  const [edit, setEdit]         = useState<EditState | null>(null)
-  const [saving, setSaving]     = useState(false)
+  const [tasks, setTasks]         = useState<Task[]>([])
+  const [urgency, setUrgency]     = useState<UrgencyFilter>('all')
+  const [importance, setImportance] = useState<ImportanceFilter>('all')
+  const [focusF, setFocusF]       = useState<FocusFilter>('all')
+  const [showDone, setShowDone]   = useState(false)
+  const [edit, setEdit]           = useState<EditState | null>(null)
+  const [saving, setSaving]       = useState(false)
 
   const load = () => getTasks(showDone).then(setTasks)
 
@@ -56,10 +60,11 @@ export function Tasks() {
 
   // Отфильтрованные задачи
   const filtered = tasks.filter(t => {
-    if (filter === 'urgent')    return t.urgent
-    if (filter === 'important') return t.important
-    if (filter === 'biz' || filter === 'blog' || filter === 'sport' || filter === 'other')
-      return t.focus === filter
+    if (urgency === 'urgent' && !t.urgent) return false
+    if (urgency === 'not-urgent' && t.urgent) return false
+    if (importance === 'important' && !t.important) return false
+    if (importance === 'not-important' && t.important) return false
+    if (focusF !== 'all' && t.focus !== focusF) return false
     return true
   })
 
@@ -116,22 +121,31 @@ export function Tasks() {
         <button className={s.addBtn} onClick={openNew}>+ добавить</button>
       </div>
 
-      <div className={s.filters}>
-        {([
-          ['all', 'все'],
-          ['urgent', '🔴 срочно'],
-          ['important', '⭐ важно'],
-          ['biz', '💼 бизнес'],
-          ['blog', '🎬 блог'],
-          ['sport', '🏃‍♀️ спорт'],
-          ['other', '🌿 прочее'],
-        ] as [Filter, string][]).map(([key, label]) => (
-          <button
-            key={key}
-            className={`${s.filterBtn} ${filter === key ? s.filterActive : ''}`}
-            onClick={() => setFilter(key)}
-          >{label}</button>
-        ))}
+      {/* Фильтры */}
+      <div className={s.filterBlock}>
+        <div className={s.filterRow}>
+          {([['all', 'все'], ['urgent', '🔴 срочно'], ['not-urgent', 'не срочно']] as [UrgencyFilter, string][]).map(([key, label]) => (
+            <button key={key} className={`${s.filterChip} ${urgency === key ? s.filterChipActive : ''}`}
+              onClick={() => setUrgency(key)}>{label}</button>
+          ))}
+        </div>
+        <div className={s.filterRow}>
+          {([['all', 'все'], ['important', '⭐ важно'], ['not-important', 'не важно']] as [ImportanceFilter, string][]).map(([key, label]) => (
+            <button key={key} className={`${s.filterChip} ${importance === key ? s.filterChipActive : ''}`}
+              onClick={() => setImportance(key)}>{label}</button>
+          ))}
+        </div>
+        <select
+          className={s.focusSelect}
+          value={focusF}
+          onChange={e => setFocusF(e.target.value as FocusFilter)}
+        >
+          <option value="all">все направления</option>
+          <option value="biz">💼 бизнес</option>
+          <option value="blog">🎬 блог</option>
+          <option value="sport">🏃‍♀️ спорт</option>
+          <option value="other">🌿 прочее</option>
+        </select>
       </div>
 
       <button className={s.showDone} onClick={() => setShowDone(v => !v)}>

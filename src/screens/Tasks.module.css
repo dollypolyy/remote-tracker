@@ -23,17 +23,17 @@
 }
 
 /* filters */
-.filters {
+.filterBlock {
   display: flex;
+  flex-direction: column;
   gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  margin-bottom: 18px;
-  scrollbar-width: none;
+  margin-bottom: 16px;
 }
-.filters::-webkit-scrollbar { display: none; }
-.filterBtn {
-  flex-shrink: 0;
+.filterRow {
+  display: flex;
+  gap: 6px;
+}
+.filterChip {
   background: var(--white);
   border-radius: 20px;
   padding: 7px 14px;
@@ -42,9 +42,26 @@
   color: var(--ink-soft);
   white-space: nowrap;
 }
-.filterActive {
+.filterChipActive {
   background: var(--ink);
   color: var(--white);
+}
+.focusSelect {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  border: none;
+  font-family: inherit;
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238A6FA0' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
 }
 
 /* toggle done */

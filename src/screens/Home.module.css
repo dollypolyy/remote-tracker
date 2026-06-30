@@ -26,7 +26,7 @@
 .heroBig { display: none; }
 .heroSub { display: none; }
 
-/* ─── Focus card ─────────────────────────────────────── */
+/* ─── Today card ──────────────────────────────────────── */
 .focusCard {
   position: relative;
   background: var(--glass);
@@ -34,98 +34,110 @@
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
   border-radius: var(--radius);
-  padding: 22px 20px 18px;
-  margin-bottom: 16px;
+  padding: 24px 22px 20px;
+  margin-bottom: 14px;
   overflow: hidden;
 }
 .focusOrb {
   position: absolute;
-  right: -50px; top: -40px;
-  width: 200px; height: 200px;
+  right: -60px; top: -50px;
+  width: 220px; height: 220px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, var(--orb-1), var(--orb-2));
-  opacity: 0.45;
-  filter: blur(2px);
+  opacity: 0.5;
+  filter: blur(4px);
 }
-.focusTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: relative;
-  margin-bottom: 16px;
+.focusLabel {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
+  color: var(--ink-soft); text-transform: uppercase;
+  position: relative; margin-bottom: 16px;
 }
-.focusLeft { flex: 1; }
-.focusLabel { font-size: 13px; color: var(--ink-soft); font-weight: 500; }
-.focusBig { font-size: 52px; font-weight: 800; letter-spacing: -2px; line-height: 1; margin: 4px 0 2px; }
-.focusSub { font-size: 13px; color: var(--ink-soft); }
 
-.focusRingWrap { position: relative; width: 128px; height: 128px; flex-shrink: 0; }
+/* Centered ring layout */
+.focusCenter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  margin-bottom: 18px;
+}
+.focusRingWrap { position: relative; width: 168px; height: 168px; flex-shrink: 0; }
 .focusRingInner {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-.focusRingPct { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
-.focusRingH { font-size: 10px; color: var(--ink-soft); font-weight: 600; margin-top: 1px; }
+.focusRingPct { font-size: 36px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
+.focusRingH { font-size: 12px; color: var(--ink-soft); font-weight: 600; margin-top: 3px; }
 
 /* split bar */
-.focusSplit { position: relative; margin-bottom: 12px; }
+.focusSplit { position: relative; margin-bottom: 14px; }
 .focusSplitBar {
-  display: flex; height: 8px; border-radius: 4px; overflow: hidden;
-  background: rgba(0,0,0,0.07); margin-bottom: 6px;
+  display: flex; height: 10px; border-radius: 5px; overflow: hidden;
+  background: rgba(0,0,0,0.07); margin-bottom: 8px;
 }
 .focusSplitLabels {
-  display: flex; gap: 14px; font-size: 12px; font-weight: 600; color: var(--ink-soft);
+  display: flex; gap: 16px; font-size: 13px; font-weight: 600; color: var(--ink-soft);
 }
 .focusSplitLabels span { display: flex; align-items: center; gap: 5px; }
-.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
 /* sport badge */
 .sportBadge {
   display: flex; align-items: center; gap: 6px;
   font-size: 13px; font-weight: 600; color: var(--ink-soft);
   background: rgba(0,0,0,0.05); border-radius: 20px;
-  padding: 7px 12px;
-  width: fit-content;
-  position: relative;
+  padding: 8px 14px; width: fit-content;
 }
-.sportDone { background: rgba(52, 168, 83, 0.12); color: var(--ink); }
-.sportLeft { margin-left: 4px; font-size: 11px; opacity: 0.7; }
+.sportDone { background: rgba(232, 137, 168, 0.15); color: var(--ink); }
+.sportLeft { margin-left: 2px; font-size: 11px; opacity: 0.65; }
 
-/* ─── Week strip ─────────────────────────────────────── */
+/* ─── Week card ───────────────────────────────────────── */
 .weekCard {
   background: var(--white);
   border-radius: var(--radius);
-  padding: 16px 18px 14px;
-  margin-bottom: 16px;
+  padding: 20px 20px 16px;
+  margin-bottom: 14px;
 }
 .weekHead {
   display: flex; justify-content: space-between; align-items: baseline;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
-.weekTitle { font-size: 15px; font-weight: 700; }
-.weekStat { font-size: 12px; color: var(--ink-soft); font-weight: 600; }
+.weekTitle { font-size: 17px; font-weight: 800; }
+.weekTotal { font-size: 13px; color: var(--ink-soft); font-weight: 600; }
+
+/* Hour breakdown grid */
+.weekNumbers {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 18px;
+}
+.weekNumCell {
+  background: rgba(0,0,0,0.03); border-radius: 14px;
+  padding: 12px 14px;
+}
+.weekNumH { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
+.weekNumLabel { font-size: 11px; color: var(--ink-soft); font-weight: 600; margin-top: 3px; }
+
+/* 7-day strip */
 .weekStrip {
-  display: flex; gap: 6px; align-items: flex-end;
-  height: 72px;
+  display: flex; gap: 6px; align-items: flex-end; height: 60px;
+  margin-bottom: 4px;
 }
 .weekDay {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
-  height: 100%;
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%;
 }
-.weekToday .weekBarWrap { opacity: 1; }
 .weekBarWrap {
   flex: 1; width: 100%; display: flex; align-items: flex-end;
-  background: rgba(0,0,0,0.05); border-radius: 4px; overflow: hidden;
-  opacity: 0.75;
+  background: rgba(0,0,0,0.06); border-radius: 4px; overflow: hidden;
 }
-.weekToday .weekBarWrap { opacity: 1; outline: 2px solid var(--ink); outline-offset: 1px; border-radius: 4px; }
-.weekBar { width: 100%; border-radius: 4px; transition: height 0.4s; min-height: 2px; }
-.weekSportDot {
-  width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid;
-  flex-shrink: 0;
-}
+.weekToday .weekBarWrap { outline: 2px solid var(--ink); outline-offset: 1px; border-radius: 4px; }
+.weekBar { width: 100%; border-radius: 3px; min-height: 2px; transition: height 0.4s; }
+.weekSportDot { width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid; flex-shrink: 0; }
 .weekDayLabel { font-size: 10px; font-weight: 600; color: var(--ink-soft); }
-.weekHint { font-size: 12px; color: var(--ink-soft); margin-top: 10px; font-weight: 500; }
+.weekHint {
+  font-size: 12px; color: var(--ink-soft); font-weight: 500;
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
 
 /* now card */
 .now {

@@ -245,21 +245,26 @@ export async function deleteTask(id: string): Promise<void> {
 
 export interface DayWeek {
   date: string
-  focusH: number    // biz + blog
+  focusH: number   // biz + blog
   sportH: number
+  bizH: number
+  blogH: number
 }
 
 export interface WeekStats {
   days: DayWeek[]
   totalFocusH: number
   totalSportH: number
+  totalBizH: number
+  totalBlogH: number
+  totalOtherH: number
 }
 
 // Возвращает данные с понедельника текущей недели (МСК) по сегодня
 export async function getWeekStats(): Promise<WeekStats> {
-  const nowMsk = Date.now() + 3 * 3_600_000            // грубый сдвиг UTC→MSK
+  const nowMsk = Date.now() + 3 * 3_600_000
   const mskNow = new Date(nowMsk)
-  const dow = mskNow.getUTCDay()                        // 0=вс, 1=пн … 6=сб
+  const dow = mskNow.getUTCDay()
   const daysBack = dow === 0 ? 6 : dow - 1
   const mondayMs = nowMsk - daysBack * 86_400_000
   const startISO = new Date(mondayMs).toISOString().slice(0, 10)
@@ -272,24 +277,27 @@ export async function getWeekStats(): Promise<WeekStats> {
     .lte('date', endISO)
     .order('started_at', { ascending: true })
 
-  const byDate = new Map<string, { focusH: number; sportH: number }>()
+  const byDate = new Map<string, { focusH: number; sportH: number; bizH: number; blogH: number; otherH: number }>()
   const now = Date.now()
   for (const b of (data || []) as ActivityBlock[]) {
-    if (!byDate.has(b.date)) byDate.set(b.date, { focusH: 0, sportH: 0 })
+    if (!byDate.has(b.date)) byDate.set(b.date, { focusH: 0, sportH: 0, bizH: 0, blogH: 0, otherH: 0 })
     const s = +new Date(b.started_at)
     const e = b.ended_at ? +new Date(b.ended_at) : now
     const h = Math.max(0, (e - s) / 3_600_000)
     const d = byDate.get(b.date)!
-    if (b.focus === 'biz' || b.focus === 'blog') d.focusH += h
-    else if (b.focus === 'sport') d.sportH += h
+    if (b.focus === 'biz')        { d.bizH += h;  d.focusH += h }
+    else if (b.focus === 'blog')  { d.blogH += h; d.focusH += h }
+    else if (b.focus === 'sport') { d.sportH += h }
+    else                          { d.otherH += h }
   }
 
   const days: DayWeek[] = []
   let cur = new Date(mondayMs)
-  const todayStr = endISO
-  while (cur.toISOString().slice(0, 10) <= todayStr) {
+  while (cur.toISOString().slice(0, 10) <= endISO) {
     const date = cur.toISOString().slice(0, 10)
-    days.push({ date, ...(byDate.get(date) ?? { focusH: 0, sportH: 0 }) })
+    const empty = { focusH: 0, sportH: 0, bizH: 0, blogH: 0, otherH: 0 }
+    const d = byDate.get(date) ?? empty
+    days.push({ date, focusH: d.focusH, sportH: d.sportH, bizH: d.bizH, blogH: d.blogH })
     cur.setUTCDate(cur.getUTCDate() + 1)
   }
 
@@ -297,6 +305,9 @@ export async function getWeekStats(): Promise<WeekStats> {
     days,
     totalFocusH: days.reduce((s, d) => s + d.focusH, 0),
     totalSportH: days.reduce((s, d) => s + d.sportH, 0),
+    totalBizH:   days.reduce((s, d) => s + d.bizH, 0),
+    totalBlogH:  days.reduce((s, d) => s + d.blogH, 0),
+    totalOtherH: [...byDate.values()].reduce((s, d) => s + d.otherH, 0),
   }
 }
 

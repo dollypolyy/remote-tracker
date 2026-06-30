@@ -38,8 +38,8 @@ const DOW_SHORT = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб']
 
 function FocusRing({ done, goal, bizH, blogH }: { done: number; goal: number; bizH: number; blogH: number }) {
   const pct = goal ? Math.min(1, done / goal) : 0
-  const r = 52
-  const stroke = 10
+  const r = 66
+  const stroke = 13
   const size = (r + stroke) * 2 + 4
   const c = 2 * Math.PI * r
   const totalFocus = bizH + blogH
@@ -49,7 +49,6 @@ function FocusRing({ done, goal, bizH, blogH }: { done: number; goal: number; bi
     <div className={s.focusRingWrap}>
       <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} style={{ display: 'block' }}>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(0,0,0,0.07)" strokeWidth={stroke} />
-        {/* блог — второй слой (от bizPct*pct до pct) */}
         {blogH > 0 && (
           <circle
             cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--blog)" strokeWidth={stroke}
@@ -58,7 +57,6 @@ function FocusRing({ done, goal, bizH, blogH }: { done: number; goal: number; bi
             transform={`rotate(-90 ${size / 2} ${size / 2})`}
           />
         )}
-        {/* бизнес — первый слой */}
         {pct > 0 && (
           <circle
             cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--biz)" strokeWidth={stroke}
@@ -172,27 +170,31 @@ export function Home() {
         <button className={s.avatar} onClick={load} title="обновить" aria-label="обновить" />
       </div>
 
-      {/* Карточка фокуса */}
+      {/* Карточка фокуса — сегодня */}
       <div className={s.focusCard}>
         <div className={s.focusOrb} aria-hidden="true" />
-        <div className={s.focusTop}>
-          <div className={s.focusLeft}>
-            <div className={s.focusLabel}>фокус сегодня</div>
-            <div className={s.focusBig}>{loading ? '…' : `${Math.round(Math.min(1, focusH / FOCUS_GOAL_H) * 100)}%`}</div>
-            <div className={s.focusSub}>{fmtH(focusH)} из {FOCUS_GOAL_H} ч</div>
-          </div>
+        <div className={s.focusLabel}>фокус сегодня</div>
+
+        <div className={s.focusCenter}>
           <FocusRing done={focusH} goal={FOCUS_GOAL_H} bizH={bizH} blogH={blogH} />
         </div>
 
-        {focusH > 0 && (
+        {focusH > 0 ? (
           <div className={s.focusSplit}>
             <div className={s.focusSplitBar}>
-              {bizH > 0 && <div style={{ flex: bizH, background: 'var(--biz)', borderRadius: '4px 0 0 4px' }} />}
-              {blogH > 0 && <div style={{ flex: blogH, background: 'var(--blog)', borderRadius: bizH > 0 ? '0 4px 4px 0' : '4px' }} />}
+              {bizH > 0 && <div style={{ flex: bizH, background: 'var(--biz)', borderRadius: '5px 0 0 5px' }} />}
+              {blogH > 0 && <div style={{ flex: blogH, background: 'var(--blog)', borderRadius: bizH > 0 ? '0 5px 5px 0' : '5px' }} />}
+              {bizH === 0 && blogH === 0 && <div style={{ flex: 1, background: 'rgba(0,0,0,0.1)', borderRadius: '5px' }} />}
             </div>
             <div className={s.focusSplitLabels}>
               {bizH > 0 && <span><span className={s.dot} style={{ background: 'var(--biz)' }} />бизнес {fmtH(bizH)}ч</span>}
               {blogH > 0 && <span><span className={s.dot} style={{ background: 'var(--blog)' }} />блог {fmtH(blogH)}ч</span>}
+            </div>
+          </div>
+        ) : (
+          <div className={s.focusSplit}>
+            <div className={s.focusSplitBar}>
+              <div style={{ flex: 1, background: 'rgba(0,0,0,0.07)', borderRadius: '5px' }} />
             </div>
           </div>
         )}
@@ -206,13 +208,41 @@ export function Home() {
         </div>
       </div>
 
-      {/* Недельная лента */}
+      {/* Карточка недели */}
       {weekDays.length > 0 && (
         <div className={s.weekCard}>
           <div className={s.weekHead}>
             <span className={s.weekTitle}>эта неделя</span>
-            <span className={s.weekStat}>{fmtH(weekFocusH)} ч · {weekDoneDays}/{weekDays.length} дн</span>
+            <span className={s.weekTotal}>{weekDoneDays}/{weekDays.length} дн</span>
           </div>
+
+          {/* Сетка часов */}
+          <div className={s.weekNumbers}>
+            <div className={s.weekNumCell}>
+              <div className={s.weekNumH} style={{ color: 'var(--biz)' }}>
+                {fmtH(weekStats?.totalBizH ?? 0)} ч
+              </div>
+              <div className={s.weekNumLabel}>💼 бизнес</div>
+            </div>
+            <div className={s.weekNumCell}>
+              <div className={s.weekNumH} style={{ color: 'var(--blog)' }}>
+                {fmtH(weekStats?.totalBlogH ?? 0)} ч
+              </div>
+              <div className={s.weekNumLabel}>🎬 блог</div>
+            </div>
+            <div className={s.weekNumCell}>
+              <div className={s.weekNumH} style={{ color: 'var(--sport)' }}>
+                {fmtH(weekStats?.totalSportH ?? 0)} ч
+              </div>
+              <div className={s.weekNumLabel}>🏃 спорт</div>
+            </div>
+            <div className={s.weekNumCell}>
+              <div className={s.weekNumH}>{fmtH(weekFocusH)} ч</div>
+              <div className={s.weekNumLabel}>🎯 фокус всего</div>
+            </div>
+          </div>
+
+          {/* 7-дневная лента */}
           <div className={s.weekStrip}>
             {weekDays.map(d => {
               const pct = Math.min(1, d.focusH / FOCUS_GOAL_H)
