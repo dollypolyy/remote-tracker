@@ -226,13 +226,14 @@ export function Home() {
             {/* Три одинаковых блока */}
             <div className={s.weekCols}>
               {[
-                { label: 'бизнес', bg: 'rgba(109,91,152,0.12)',  val: totalBiz },
-                { label: 'блог',   bg: 'rgba(184,132,206,0.12)', val: totalBlog },
-                { label: 'спорт',  bg: 'rgba(232,137,168,0.12)', val: totalSport },
+                { label: 'бизнес', bg: 'rgba(109,91,152,0.14)',  val: totalBiz },
+                { label: 'блог',   bg: 'rgba(184,132,206,0.14)', val: totalBlog },
+                { label: 'спорт',  bg: 'rgba(232,137,168,0.14)', val: totalSport },
               ].map(({ label, bg, val }) => (
                 <div key={label} className={s.weekCol}>
-                  <div className={s.weekColH}>{fmtH(val)} ч</div>
-                  <div className={s.weekColBox} style={{ background: bg }} />
+                  <div className={s.weekColBox} style={{ background: bg }}>
+                    <div className={s.weekColH}>{fmtH(val)} ч</div>
+                  </div>
                   <div className={s.weekColLabel}>{label}</div>
                 </div>
               ))}
@@ -261,7 +262,10 @@ export function Home() {
               })}
             </div>
 
-            <div className={s.weekItogo}>и того {fmtH(weekFocusH)} ч фокуса</div>
+            <div className={s.weekItogo}>
+              <span>🎯</span>
+              <span>{fmtH(weekFocusH)} ч · фокус недели</span>
+            </div>
           </div>
         )
       })()}
