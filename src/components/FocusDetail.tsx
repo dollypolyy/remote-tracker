@@ -30,8 +30,6 @@ export function FocusDetail({ focus, blocks, onClose }: Props) {
   }
   const rows = [...byAct.entries()].sort((a, b) => b[1] - a[1])
   const total = rows.reduce((acc, [, h]) => acc + h, 0)
-  const goal = FOCUSES[focus].goalH
-
   return (
     <div className={s.overlay} onClick={onClose}>
       <div className={s.sheet} onClick={(e) => e.stopPropagation()}>
@@ -39,7 +37,6 @@ export function FocusDetail({ focus, blocks, onClose }: Props) {
         <div className={s.title}>{FOCUS_ICON[focus]} {FOCUSES[focus].name}</div>
         <div className={d.summary}>
           сегодня <b>{fmt(total)} ч</b>
-          {goal > 0 ? ` из ${goal} ч` : ''}
         </div>
 
         {rows.length === 0 ? (

@@ -130,7 +130,7 @@ export function Stats({ onBack }: { onBack: () => void }) {
   const avgByFocus = (['biz', 'sport', 'blog'] as const).map(k => ({
     key: k, name: FOCUSES[k].name,
     avg: active.length ? active.reduce((a, d) => a + d.hoursByFocus[k], 0) / n : 0,
-    goal: FOCUSES[k].goalH,
+    goal: k === 'sport' ? 0.5 : k === 'biz' ? 6 : 2,
   }))
 
   const moods    = rows.filter(d => d.mood != null)

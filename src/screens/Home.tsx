@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import s from './Home.module.css'
-import { FOCUSES, ACTIVITIES, type FocusKey } from '../activities'
+import { FOCUSES, ACTIVITIES, FOCUS_GOAL_H, SPORT_GOAL_H, type FocusKey } from '../activities'
 import {
-  getTodayStats, startActivity, insertBlock, FutureTimeError,
-  type DayStats, type ActivityBlock,
+  getTodayStats, getWeekStats, startActivity, insertBlock, FutureTimeError,
+  type DayStats, type ActivityBlock, type WeekStats,
 } from '../lib/data'
 import { ActivityPicker } from '../components/ActivityPicker'
 import { EditBlock } from '../components/EditBlock'
@@ -16,7 +16,6 @@ type TLItem =
 
 const fmtH = (n: number) => n.toFixed(1).replace('.', ',')
 
-// Строит ленту дня с 08:00, заполняя промежутки «пропусками»
 function buildTimeline(blocks: ActivityBlock[], dayStart: number, now: number): TLItem[] {
   const items: TLItem[] = []
   let cursor = dayStart
@@ -32,26 +31,48 @@ function buildTimeline(blocks: ActivityBlock[], dayStart: number, now: number): 
 }
 
 const FOCUS_COLORS: Record<string, string> = {
-  biz:   'var(--biz)',
-  sport: 'var(--sport)',
-  blog:  'var(--blog)',
-  other: 'var(--other)',
+  biz: 'var(--biz)', sport: 'var(--sport)', blog: 'var(--blog)', other: 'var(--other)',
 }
 
-function Ring({ done, goal, color }: { done: number; goal: number; color: string }) {
+const DOW_SHORT = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб']
+
+function FocusRing({ done, goal, bizH, blogH }: { done: number; goal: number; bizH: number; blogH: number }) {
   const pct = goal ? Math.min(1, done / goal) : 0
-  const r = 26
+  const r = 52
+  const stroke = 10
+  const size = (r + stroke) * 2 + 4
   const c = 2 * Math.PI * r
+  const totalFocus = bizH + blogH
+  const bizPct = totalFocus > 0 ? bizH / totalFocus : 1
+
   return (
-    <svg viewBox="0 0 64 64" width="64" height="64">
-      <circle cx="32" cy="32" r={r} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="7" />
-      <circle
-        cx="32" cy="32" r={r} fill="none" stroke={color} strokeWidth="7"
-        strokeLinecap="round" strokeDasharray={c}
-        strokeDashoffset={c * (1 - pct)}
-        transform="rotate(-90 32 32)"
-      />
-    </svg>
+    <div className={s.focusRingWrap}>
+      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} style={{ display: 'block' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(0,0,0,0.07)" strokeWidth={stroke} />
+        {/* блог — второй слой (от bizPct*pct до pct) */}
+        {blogH > 0 && (
+          <circle
+            cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--blog)" strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={`${c * pct} ${c}`}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+        )}
+        {/* бизнес — первый слой */}
+        {pct > 0 && (
+          <circle
+            cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--biz)" strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={`${c * pct * bizPct} ${c}`}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+        )}
+      </svg>
+      <div className={s.focusRingInner}>
+        <div className={s.focusRingPct}>{Math.round(pct * 100)}%</div>
+        <div className={s.focusRingH}>{fmtH(done)} / {goal}ч</div>
+      </div>
+    </div>
   )
 }
 
@@ -74,15 +95,15 @@ export function Home() {
   const dow  = today.toLocaleDateString('ru-RU', { weekday: 'long' })
   const day  = today.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
 
-  const [stats, setStats] = useState<DayStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [picking, setPicking] = useState(false)
+  const [stats, setStats]         = useState<DayStats | null>(null)
+  const [weekStats, setWeekStats] = useState<WeekStats | null>(null)
+  const [loading, setLoading]     = useState(true)
+  const [picking, setPicking]     = useState(false)
   const [editBlock, setEditBlock] = useState<ActivityBlock | null>(null)
-  const [editDay, setEditDay] = useState(false)
+  const [editDay, setEditDay]     = useState(false)
   const [focusDetail, setFocusDetail] = useState<FocusKey | null>(null)
   const [showAllTl, setShowAllTl] = useState(false)
-  // заполнение конкретного пропуска
-  const [fillGap, setFillGap] = useState<{ start: Date; end: Date; toNow: boolean } | null>(null)
+  const [fillGap, setFillGap]     = useState<{ start: Date; end: Date; toNow: boolean } | null>(null)
 
   const handlePick = async (id: string, focus: FocusKey, start: Date, end?: Date) => {
     try {
@@ -98,35 +119,23 @@ export function Home() {
 
   const load = () => {
     setLoading(true)
-    getTodayStats()
-      .then(setStats)
+    Promise.all([getTodayStats(), getWeekStats()])
+      .then(([day, week]) => { setStats(day); setWeekStats(week) })
       .finally(() => setLoading(false))
   }
 
   useEffect(() => {
     load()
-    const id = setInterval(load, 60_000) // обновление раз в минуту
+    const id = setInterval(load, 60_000)
     return () => clearInterval(id)
   }, [])
 
-  // Данные для отображения
-  const focusRows = Object.values(FOCUSES).filter((f) => f.key !== 'other')
   const hoursByFocus = stats?.hoursByFocus ?? { biz: 0, sport: 0, blog: 0, other: 0 }
-
-  const totalDone = focusRows.reduce((acc, f) => acc + Math.min(hoursByFocus[f.key], f.goalH), 0)
-  const totalGoal = focusRows.reduce((acc, f) => acc + f.goalH, 0)
-  const focusPct  = totalGoal > 0 ? Math.round((totalDone / totalGoal) * 100) : 0
-
-  // баланс дня: фокус (бизнес+спорт+блог) vs не-фокус (прочее)
-  const focusH    = hoursByFocus.biz + hoursByFocus.sport + hoursByFocus.blog
-  const nonFocusH = hoursByFocus.other
-  const trackedH  = focusH + nonFocusH
-  const focusShare = trackedH > 0 ? Math.round((focusH / trackedH) * 100) : 0
-
-  // приоритет дня — на что ушло больше всего
-  const priorityKey = (Object.keys(hoursByFocus) as (keyof typeof hoursByFocus)[])
-    .reduce((a, b) => (hoursByFocus[b] > hoursByFocus[a] ? b : a), 'biz')
-  const priorityH = hoursByFocus[priorityKey]
+  const bizH   = hoursByFocus.biz
+  const blogH  = hoursByFocus.blog
+  const sportH = hoursByFocus.sport
+  const focusH = bizH + blogH
+  const sportDone = sportH >= SPORT_GOAL_H
 
   const currentBlock = stats?.currentBlock ?? null
   const currentAct   = currentBlock ? ACTIVITIES.find((a) => a.id === currentBlock.activity_id) : null
@@ -142,7 +151,16 @@ export function Home() {
   const now = Date.now()
   const items = buildTimeline(blocks, dayStart, now)
   const showTimeline = items.length > 0
-  const totalSpan = Math.max(1, now - dayStart)
+
+  const weekDays    = weekStats?.days ?? []
+  const weekFocusH  = weekStats?.totalFocusH ?? 0
+  const weekGoalH   = weekDays.length * FOCUS_GOAL_H
+  const weekDoneDays = weekDays.filter(d => d.focusH >= FOCUS_GOAL_H * 0.75).length
+
+  const weekCoach = weekGoalH === 0 ? '' :
+    weekFocusH / weekGoalH >= 0.8 ? '🔥 отличный темп — так держать' :
+    weekFocusH / weekGoalH >= 0.5 ? '📈 хороший темп, поднажми' :
+    '⚡ поднажми — фокус пока низкий'
 
   return (
     <div className={s.screen}>
@@ -154,55 +172,79 @@ export function Home() {
         <button className={s.avatar} onClick={load} title="обновить" aria-label="обновить" />
       </div>
 
-      <div className={s.hero}>
-        <div className={s.orb} aria-hidden="true" />
-        <div className={s.heroLabel}>сегодня в фокусе</div>
-        <div className={s.heroBig}>{loading ? '…' : `${focusPct}%`}</div>
-        <div className={s.heroSub}>
-          {loading ? 'загрузка...' : `${fmtH(totalDone)} из ${totalGoal} часов по приоритетам`}
+      {/* Карточка фокуса */}
+      <div className={s.focusCard}>
+        <div className={s.focusOrb} aria-hidden="true" />
+        <div className={s.focusTop}>
+          <div className={s.focusLeft}>
+            <div className={s.focusLabel}>фокус сегодня</div>
+            <div className={s.focusBig}>{loading ? '…' : `${Math.round(Math.min(1, focusH / FOCUS_GOAL_H) * 100)}%`}</div>
+            <div className={s.focusSub}>{fmtH(focusH)} из {FOCUS_GOAL_H} ч</div>
+          </div>
+          <FocusRing done={focusH} goal={FOCUS_GOAL_H} bizH={bizH} blogH={blogH} />
         </div>
-      </div>
 
-      <div className={s.rings}>
-        {focusRows.map((f) => {
-          const done = hoursByFocus[f.key] ?? 0
-          const pct  = f.goalH > 0 ? Math.min(100, Math.round((done / f.goalH) * 100)) : 0
-          return (
-            <button key={f.key} className={s.ringCard} onClick={() => setFocusDetail(f.key)}>
-              <div className={s.ringWrap}>
-                <Ring done={done} goal={f.goalH} color={f.color} />
-                <div className={s.ringVal}>{pct}%</div>
-              </div>
-              <div className={s.ringName}>{f.name}</div>
-              <div className={s.ringGoal}>{fmtH(done)} / {f.goalH} ч</div>
-            </button>
-          )
-        })}
-      </div>
+        {focusH > 0 && (
+          <div className={s.focusSplit}>
+            <div className={s.focusSplitBar}>
+              {bizH > 0 && <div style={{ flex: bizH, background: 'var(--biz)', borderRadius: '4px 0 0 4px' }} />}
+              {blogH > 0 && <div style={{ flex: blogH, background: 'var(--blog)', borderRadius: bizH > 0 ? '0 4px 4px 0' : '4px' }} />}
+            </div>
+            <div className={s.focusSplitLabels}>
+              {bizH > 0 && <span><span className={s.dot} style={{ background: 'var(--biz)' }} />бизнес {fmtH(bizH)}ч</span>}
+              {blogH > 0 && <span><span className={s.dot} style={{ background: 'var(--blog)' }} />блог {fmtH(blogH)}ч</span>}
+            </div>
+          </div>
+        )}
 
-      <div className={s.balance}>
-        <div className={s.balHead}>
-          <div className={s.balTitle}>баланс дня</div>
-          {priorityH > 0 && (
-            <div className={s.balPriority}>главное · {FOCUSES[priorityKey].name}</div>
+        <div className={`${s.sportBadge} ${sportDone ? s.sportDone : ''}`}>
+          <span>{sportDone ? '✅' : '▫️'}</span>
+          <span>спорт · {fmtH(sportH)} / {fmtH(SPORT_GOAL_H)} ч</span>
+          {sportH > 0 && !sportDone && (
+            <span className={s.sportLeft}>ещё {fmtH(SPORT_GOAL_H - sportH)} ч</span>
           )}
         </div>
-        <div className={s.balBar}>
-          {(['biz', 'sport', 'blog', 'other'] as const).map((k) => (
-            <div key={k} style={{ flex: Math.max(0.0001, hoursByFocus[k]), background: FOCUS_COLORS[k] }} />
-          ))}
-          {trackedH === 0 && <div className={s.balEmpty} />}
-        </div>
-        <div className={s.balLegend}>
-          {(['biz', 'sport', 'blog', 'other'] as const).map((k) => (
-            <div key={k} className={s.balItem}>
-              <span className={s.balDot} style={{ background: FOCUS_COLORS[k] }} />
-              {FOCUSES[k].name} <b>{fmtH(hoursByFocus[k])} ч</b>
-            </div>
-          ))}
-        </div>
       </div>
 
+      {/* Недельная лента */}
+      {weekDays.length > 0 && (
+        <div className={s.weekCard}>
+          <div className={s.weekHead}>
+            <span className={s.weekTitle}>эта неделя</span>
+            <span className={s.weekStat}>{fmtH(weekFocusH)} ч · {weekDoneDays}/{weekDays.length} дн</span>
+          </div>
+          <div className={s.weekStrip}>
+            {weekDays.map(d => {
+              const pct = Math.min(1, d.focusH / FOCUS_GOAL_H)
+              const isToday = d.date === todayISO
+              return (
+                <div key={d.date} className={`${s.weekDay} ${isToday ? s.weekToday : ''}`}>
+                  <div className={s.weekBarWrap}>
+                    <div
+                      className={s.weekBar}
+                      style={{
+                        height: `${Math.round(pct * 100)}%`,
+                        background: pct >= 1 ? 'var(--biz)' : pct >= 0.5 ? 'var(--blog)' : 'rgba(0,0,0,0.15)',
+                      }}
+                    />
+                  </div>
+                  <div
+                    className={s.weekSportDot}
+                    style={{
+                      background: d.sportH >= SPORT_GOAL_H ? 'var(--sport)' : 'transparent',
+                      borderColor: d.sportH >= SPORT_GOAL_H ? 'var(--sport)' : 'rgba(0,0,0,0.18)',
+                    }}
+                  />
+                  <div className={s.weekDayLabel}>{DOW_SHORT[new Date(d.date + 'T12:00:00Z').getUTCDay()]}</div>
+                </div>
+              )
+            })}
+          </div>
+          {weekCoach && <div className={s.weekHint}>{weekCoach}</div>}
+        </div>
+      )}
+
+      {/* Сейчас */}
       <div className={s.now}>
         <div>
           <div className={s.nowLabel}>сейчас</div>
@@ -225,6 +267,7 @@ export function Home() {
         </button>
       </div>
 
+      {/* Лента дня */}
       {showTimeline && (
         <div className={s.tlCard}>
           <div className={s.tlHead}>
@@ -289,12 +332,7 @@ export function Home() {
         </div>
       )}
 
-      {picking && (
-        <ActivityPicker
-          onPick={handlePick}
-          onClose={() => setPicking(false)}
-        />
-      )}
+      {picking && <ActivityPicker onPick={handlePick} onClose={() => setPicking(false)} />}
 
       {fillGap && (
         <ActivityPicker
@@ -308,11 +346,7 @@ export function Home() {
       )}
 
       {editBlock && (
-        <EditBlock
-          block={editBlock}
-          onDone={() => { setEditBlock(null); load() }}
-          onClose={() => setEditBlock(null)}
-        />
+        <EditBlock block={editBlock} onDone={() => { setEditBlock(null); load() }} onClose={() => setEditBlock(null)} />
       )}
 
       {editDay && blocks.length >= 2 && (
@@ -325,11 +359,7 @@ export function Home() {
       )}
 
       {focusDetail && (
-        <FocusDetail
-          focus={focusDetail}
-          blocks={blocks}
-          onClose={() => setFocusDetail(null)}
-        />
+        <FocusDetail focus={focusDetail} blocks={blocks} onClose={() => setFocusDetail(null)} />
       )}
     </div>
   )

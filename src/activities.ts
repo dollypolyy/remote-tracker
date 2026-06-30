@@ -3,11 +3,14 @@
 
 export type FocusKey = 'biz' | 'sport' | 'blog' | 'other'
 
+// Цели дня
+export const FOCUS_GOAL_H = 8    // часов фокуса (бизнес + блог) в день
+export const SPORT_GOAL_H = 0.5  // часов спорта в день (обязательно)
+
 export interface Focus {
   key: FocusKey
   name: string        // как пишем в интерфейсе
   color: string       // CSS-переменная
-  goalH: number       // минимум часов в день (0 = без минимума)
 }
 
 export interface Activity {
@@ -17,10 +20,10 @@ export interface Activity {
 }
 
 export const FOCUSES: Record<FocusKey, Focus> = {
-  biz:   { key: 'biz',   name: 'бизнес', color: 'var(--biz)',   goalH: 6   },
-  sport: { key: 'sport', name: 'спорт',  color: 'var(--sport)', goalH: 0.5 },
-  blog:  { key: 'blog',  name: 'блог',   color: 'var(--blog)',  goalH: 2   },
-  other: { key: 'other', name: 'прочее', color: 'var(--other)', goalH: 0   },
+  biz:   { key: 'biz',   name: 'бизнес', color: 'var(--biz)'   },
+  sport: { key: 'sport', name: 'спорт',  color: 'var(--sport)' },
+  blog:  { key: 'blog',  name: 'блог',   color: 'var(--blog)'  },
+  other: { key: 'other', name: 'прочее', color: 'var(--other)' },
 }
 
 export const ACTIVITIES: Activity[] = [

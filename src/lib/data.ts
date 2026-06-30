@@ -197,12 +197,71 @@ export async function deleteBlock(id: string): Promise<void> {
   if (error) throw error
 }
 
+// ─── Статистика недели ──────────────────────────────────────
+
+export interface DayWeek {
+  date: string
+  focusH: number    // biz + blog
+  sportH: number
+}
+
+export interface WeekStats {
+  days: DayWeek[]
+  totalFocusH: number
+  totalSportH: number
+}
+
+// Возвращает данные с понедельника текущей недели (МСК) по сегодня
+export async function getWeekStats(): Promise<WeekStats> {
+  const nowMsk = Date.now() + 3 * 3_600_000            // грубый сдвиг UTC→MSK
+  const mskNow = new Date(nowMsk)
+  const dow = mskNow.getUTCDay()                        // 0=вс, 1=пн … 6=сб
+  const daysBack = dow === 0 ? 6 : dow - 1
+  const mondayMs = nowMsk - daysBack * 86_400_000
+  const startISO = new Date(mondayMs).toISOString().slice(0, 10)
+  const endISO = new Date(nowMsk).toISOString().slice(0, 10)
+
+  const { data } = await supabase
+    .from('activity_blocks')
+    .select('date, focus, started_at, ended_at')
+    .gte('date', startISO)
+    .lte('date', endISO)
+    .order('started_at', { ascending: true })
+
+  const byDate = new Map<string, { focusH: number; sportH: number }>()
+  const now = Date.now()
+  for (const b of (data || []) as ActivityBlock[]) {
+    if (!byDate.has(b.date)) byDate.set(b.date, { focusH: 0, sportH: 0 })
+    const s = +new Date(b.started_at)
+    const e = b.ended_at ? +new Date(b.ended_at) : now
+    const h = Math.max(0, (e - s) / 3_600_000)
+    const d = byDate.get(b.date)!
+    if (b.focus === 'biz' || b.focus === 'blog') d.focusH += h
+    else if (b.focus === 'sport') d.sportH += h
+  }
+
+  const days: DayWeek[] = []
+  let cur = new Date(mondayMs)
+  const todayStr = endISO
+  while (cur.toISOString().slice(0, 10) <= todayStr) {
+    const date = cur.toISOString().slice(0, 10)
+    days.push({ date, ...(byDate.get(date) ?? { focusH: 0, sportH: 0 }) })
+    cur.setUTCDate(cur.getUTCDate() + 1)
+  }
+
+  return {
+    days,
+    totalFocusH: days.reduce((s, d) => s + d.focusH, 0),
+    totalSportH: days.reduce((s, d) => s + d.sportH, 0),
+  }
+}
+
 // ─── Статистика за период ───────────────────────────────────
 
 export interface DayAgg {
   date: string
   hoursByFocus: Record<FocusKey, number>
-  focusH: number       // бизнес + спорт + блог
+  focusH: number       // бизнес + блог (фокусные)
   otherH: number
   mood: number | null
 }

@@ -198,11 +198,10 @@ export async function computeStatsForPeriod(startISO: string, endISO: string): P
   const n = activeDays
   const focusTotal = totals.biz + totals.sport + totals.blog
   return `${startISO} – ${endISO} · ${activeDays} активных дней
-💼 бизнес: ${totals.biz.toFixed(1)} ч (сред. ${(totals.biz/n).toFixed(1)}/день) ${totals.biz/n >= 6 ? '✅' : ''}
+🎯 фокус (бизнес+блог): ${focusTotal.toFixed(1)} ч (сред. ${((totals.biz+totals.blog)/n).toFixed(1)}/день) ${(totals.biz+totals.blog)/n >= 8 ? '✅' : ''}
 🏃‍♀️ спорт: ${totals.sport.toFixed(1)} ч (сред. ${(totals.sport/n).toFixed(1)}/день) ${totals.sport/n >= 0.5 ? '✅' : ''}
-🎬 блог: ${totals.blog.toFixed(1)} ч (сред. ${(totals.blog/n).toFixed(1)}/день) ${totals.blog/n >= 2 ? '✅' : ''}
-🌿 прочее: ${totals.other.toFixed(1)} ч
-🎯 в фокусе суммарно: ${focusTotal.toFixed(1)} ч`
+💼 бизнес: ${totals.biz.toFixed(1)} ч  🎬 блог: ${totals.blog.toFixed(1)} ч
+🌿 прочее: ${totals.other.toFixed(1)} ч`
 }
 
 export async function getDiaryEntries(startISO: string, endISO: string, field?: string): Promise<string> {
@@ -478,7 +477,8 @@ async function buildSystemPrompt(today: string): Promise<string> {
 🌿 прочее: готовка(other_cook) еда(other_eat) учёба(other_study) быт(other_chores) отдых(other_rest) дорога(other_road) залипание(other_scroll) личное(other_personal)
 
 ━━━ СЕГОДНЯ · ${dateLabel} · ${nowMSK} МСК ━━━
-💼 ${hours.biz.toFixed(1)}ч / 6ч ${hours.biz >= 6 ? '✅' : ''}  🏃‍♀️ ${hours.sport.toFixed(1)}ч / 0.5ч ${hours.sport >= 0.5 ? '✅' : ''}  🎬 ${hours.blog.toFixed(1)}ч / 2ч ${hours.blog >= 2 ? '✅' : ''}
+🎯 Фокус (бизнес+блог): ${(hours.biz + hours.blog).toFixed(1)}ч / 8ч ${hours.biz + hours.blog >= 8 ? '✅' : ''}
+💼 бизнес ${hours.biz.toFixed(1)}ч  🎬 блог ${hours.blog.toFixed(1)}ч  🏃‍♀️ спорт ${hours.sport.toFixed(1)}ч / 0.5ч ${hours.sport >= 0.5 ? '✅' : ''}
 ${cur ? `Сейчас: ${cur}` : 'Сейчас не отслеживается'}
 
 Лента дня (для контекста при подтверждении):
