@@ -262,10 +262,16 @@ export function Home() {
               })}
             </div>
 
-            <div className={s.weekItogo}>
-              <span>🎯</span>
-              <span>{fmtH(weekFocusH)} ч · фокус недели</span>
-            </div>
+            {(() => {
+              const weekGoalH = FOCUS_GOAL_H * 7
+              const pct = Math.round(weekFocusH / weekGoalH * 100)
+              return (
+                <div className={s.weekItogo}>
+                  <span>🎯</span>
+                  <span>{fmtH(weekFocusH)} ч · {pct}% из {Math.round(weekGoalH)} ч</span>
+                </div>
+              )
+            })()}
           </div>
         )
       })()}
