@@ -13,7 +13,7 @@ export default function App() {
   return (
     <>
       {tab === 'home'  && <Home />}
-      {tab === 'tasks' && <Tasks />}
+      {tab === 'tasks' && <Tasks onBack={() => setTab('home')} />}
       {tab === 'stats' && <Stats onBack={() => setTab('home')} />}
       {tab === 'diary' && <Diary onBack={() => setTab('home')} />}
 

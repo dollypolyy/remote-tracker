@@ -45,7 +45,7 @@ const emptyEdit = (): EditState => ({
   id: null, text: '', focus: 'other', urgent: false, important: false, due_date: '',
 })
 
-export function Tasks() {
+export function Tasks({ onBack }: { onBack?: () => void }) {
   const [tasks, setTasks]         = useState<Task[]>([])
   const [urgency, setUrgency]     = useState<UrgencyFilter>('all')
   const [importance, setImportance] = useState<ImportanceFilter>('all')
@@ -118,6 +118,7 @@ export function Tasks() {
 
   return (
     <div className={s.screen}>
+      {onBack && <button className={s.back} onClick={onBack}>‹ назад</button>}
       <div className={s.header}>
         <div className={s.title}>задачи</div>
         <button className={s.addBtn} onClick={openNew}>+ добавить</button>

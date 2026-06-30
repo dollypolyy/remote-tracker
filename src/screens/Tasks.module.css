@@ -5,6 +5,13 @@
   min-height: 100dvh;
 }
 
+/* back */
+.back {
+  background: rgba(255,255,255,0.5); border-radius: 20px;
+  padding: 8px 16px 8px 12px; font-size: 14px; font-weight: 700; color: var(--ink);
+  margin-bottom: 12px;
+}
+
 /* header */
 .header {
   display: flex;
