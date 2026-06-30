@@ -869,13 +869,19 @@ async function aiReply(userText: string, today: string, history: { role: string;
             toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'not found' })
           }
         } else if (tc.function.name === 'save_task') {
+          // Принимаем дату только в формате YYYY-MM-DD, иначе null
+          const rawDate = args.due_date as string | undefined
+          const due_date = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : null
           const { data: newTask, error } = await db.from('tasks').insert({
             text: args.text, focus: args.focus || 'other',
             urgent: !!args.urgent, important: !!args.important,
-            due_date: args.due_date || null,
+            due_date,
           }).select().single()
-          if (error) throw new Error(error.message)
-          toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `saved task id=${newTask?.id}` })
+          if (error) {
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `error: ${error.message}` })
+          } else {
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `saved task id=${newTask?.id}${due_date ? ` due=${due_date}` : ''}` })
+          }
         } else if (tc.function.name === 'get_tasks') {
           const focus = args.focus && args.focus !== 'all' ? args.focus : null
           let q = db.from('tasks').select('text, focus, urgent, important, due_date').eq('done', false)
