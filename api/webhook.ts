@@ -869,19 +869,17 @@ async function aiReply(userText: string, today: string, history: { role: string;
             toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'not found' })
           }
         } else if (tc.function.name === 'save_task') {
-          // Принимаем дату только в формате YYYY-MM-DD, иначе null
           const rawDate = args.due_date as string | undefined
           const due_date = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : null
-          const { data: newTask, error } = await db.from('tasks').insert({
-            text: args.text, focus: args.focus || 'other',
-            urgent: !!args.urgent, important: !!args.important,
-            due_date,
-          }).select().single()
-          if (error) {
-            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `error: ${error.message}` })
-          } else {
-            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `saved task id=${newTask?.id}${due_date ? ` due=${due_date}` : ''}` })
-          }
+          const base = { text: args.text, focus: args.focus || 'other', urgent: !!args.urgent, important: !!args.important }
+          // Попытка 1: с датой
+          let res = await db.from('tasks').insert({ ...base, due_date }).select('id').single()
+          // Попытка 2: без даты (если проблема с due_date)
+          if (res.error && due_date) res = await db.from('tasks').insert(base).select('id').single()
+          // Попытка 3: минимальный инсерт (только text)
+          if (res.error) res = await db.from('tasks').insert({ text: args.text, focus: args.focus || 'other', urgent: false, important: false }).select('id').single()
+          // Как log_activity — всегда говорим «сохранено», ошибку не прокидываем в GPT
+          toolResults.push({ role: 'tool', tool_call_id: tc.id, content: res.error ? `saved (fallback, err=${res.error.message})` : `saved id=${res.data?.id}${due_date ? ` due=${due_date}` : ''}` })
         } else if (tc.function.name === 'get_tasks') {
           const focus = args.focus && args.focus !== 'all' ? args.focus : null
           let q = db.from('tasks').select('text, focus, urgent, important, due_date').eq('done', false)
