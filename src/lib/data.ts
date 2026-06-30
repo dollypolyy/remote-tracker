@@ -197,6 +197,50 @@ export async function deleteBlock(id: string): Promise<void> {
   if (error) throw error
 }
 
+// ─── Задачи ────────────────────────────────────────────────
+
+export interface Task {
+  id: string
+  created_at: string
+  text: string
+  focus: FocusKey
+  urgent: boolean
+  important: boolean
+  done: boolean
+  due_date: string | null
+  notes: string | null
+}
+
+export async function getTasks(includeDone = false): Promise<Task[]> {
+  let q = supabase.from('tasks').select('*')
+  if (!includeDone) q = (q as any).eq('done', false)
+  const { data, error } = await (q as any).order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []) as Task[]
+}
+
+export async function createTask(
+  text: string, focus: FocusKey, urgent: boolean, important: boolean, due_date?: string | null
+): Promise<Task> {
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert({ text, focus, urgent, important, due_date: due_date ?? null })
+    .select()
+    .single()
+  if (error) throw error
+  return data as Task
+}
+
+export async function updateTask(id: string, patch: Partial<Omit<Task, 'id' | 'created_at'>>): Promise<void> {
+  const { error } = await supabase.from('tasks').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteTask(id: string): Promise<void> {
+  const { error } = await supabase.from('tasks').delete().eq('id', id)
+  if (error) throw error
+}
+
 // ─── Статистика недели ──────────────────────────────────────
 
 export interface DayWeek {

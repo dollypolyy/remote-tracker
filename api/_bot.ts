@@ -109,7 +109,8 @@ export function mainMenuKeyboard() {
   return {
     keyboard: [
       [{ text: '📝 новая активность' }, { text: '✍️ мысль' }],
-      [{ text: '📊 статистика' },       { text: '📱 приложение' }],
+      [{ text: '📋 задачи' },           { text: '📊 статистика' }],
+      [{ text: '📱 приложение' }],
     ],
     resize_keyboard: true,
     is_persistent: true,

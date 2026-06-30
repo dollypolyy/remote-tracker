@@ -455,6 +455,16 @@ async function buildSystemPrompt(today: string): Promise<string> {
 ДЕЙСТВИЕ: save_diary_thought для каждого из 5 пунктов (done/achieved/not_achieved/thoughts/goals)
 После: «Записала! Что добавить или всё ок?» → если ок → «Спокойной ночи 🌙» + живая фраза
 
+▶ ТИП Е — ЗАДАЧИ
+Признаки: «запиши», «нужно», «надо», «не забыть», «хочу сделать», «задача», «сделать»
+ДЕЙСТВИЕ:
+— save_task → сохранить немедленно
+— Если срочность/важность не указаны явно — сохраняй как urgent=false, important=false, затем В ОТВЕТЕ спрашивай: «Срочно? Важно?» одной строкой
+— Если в голосовом/тексте указала («срочно», «важно», «на этой неделе») — ставь параметры сразу
+— «выполнила / сделала / готово» → done_task
+— «покажи задачи / что там в списке» → get_tasks
+— Дедлайны: «на этой неделе» = воскресенье, «завтра» = завтра, «в эту пятницу» = ближайшая пятница
+
 ▶ ТИП Д — РАСПИСАНИЯ И НАСТРОЙКИ
 «каждый четверг в 9 присылай...», «запомни что...», «отмени напоминание»
 ДЕЙСТВИЕ: create_schedule / list_schedules / delete_schedule / save_pref
@@ -709,6 +719,55 @@ const SAVE_THOUGHT_TOOL = {
   },
 }
 
+const SAVE_TASK_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'save_task',
+    description: 'Сохранить задачу Даши. Вызывай когда она говорит «запиши», «нужно», «надо», «не забыть», «хочу сделать». Сохраняй СРАЗУ, не спрашивая подтверждения. В ответе можно уточнить приоритет если не был указан явно.',
+    parameters: {
+      type: 'object',
+      properties: {
+        text:      { type: 'string', description: 'Текст задачи — чётко и конкретно' },
+        focus:     { type: 'string', enum: ['biz', 'sport', 'blog', 'other'], description: 'К какой сфере относится' },
+        urgent:    { type: 'boolean', description: 'Срочно (нужно сделать в ближайшие 1-2 дня)' },
+        important: { type: 'boolean', description: 'Важно (влияет на цели/результаты)' },
+        due_date:  { type: 'string', description: 'Дедлайн YYYY-MM-DD если указала (необязательно)' },
+      },
+      required: ['text', 'focus', 'urgent', 'important'],
+    },
+  },
+}
+
+const GET_TASKS_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'get_tasks',
+    description: 'Получить список невыполненных задач. Вызывай когда Даша спрашивает «что у меня в задачах», «покажи список», «что нужно сделать».',
+    parameters: {
+      type: 'object',
+      properties: {
+        focus: { type: 'string', enum: ['biz', 'sport', 'blog', 'other', 'all'], description: 'Фильтр по сфере. all = все задачи.' },
+      },
+      required: [],
+    },
+  },
+}
+
+const DONE_TASK_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'done_task',
+    description: 'Отметить задачу выполненной. Вызывай когда Даша говорит «сделала», «выполнила», «готово», «отметь».',
+    parameters: {
+      type: 'object',
+      properties: {
+        text_fragment: { type: 'string', description: 'Часть текста задачи для поиска — несколько ключевых слов' },
+      },
+      required: ['text_fragment'],
+    },
+  },
+}
+
 const DELETE_TOOL = {
   type: 'function' as const,
   function: {
@@ -740,7 +799,7 @@ async function aiReply(userText: string, today: string, history: { role: string;
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgs, tools: [LOG_TOOL, SAVE_THOUGHT_TOOL, DIARY_TOOL, DELETE_TOOL, GET_STATS_TOOL, GET_DIARY_TOOL, GET_TIMELINE_TOOL, SAVE_PREF_TOOL, CREATE_SCHEDULE_TOOL, LIST_SCHEDULES_TOOL, DELETE_SCHEDULE_TOOL], tool_choice: 'auto', max_tokens: 600, temperature: 0.85 }),
+    body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgs, tools: [LOG_TOOL, SAVE_THOUGHT_TOOL, DIARY_TOOL, DELETE_TOOL, SAVE_TASK_TOOL, GET_TASKS_TOOL, DONE_TASK_TOOL, GET_STATS_TOOL, GET_DIARY_TOOL, GET_TIMELINE_TOOL, SAVE_PREF_TOOL, CREATE_SCHEDULE_TOOL, LIST_SCHEDULES_TOOL, DELETE_SCHEDULE_TOOL], tool_choice: 'auto', max_tokens: 600, temperature: 0.85 }),
   })
   const json = await resp.json()
   const msg = json.choices?.[0]?.message
@@ -807,6 +866,39 @@ async function aiReply(userText: string, today: string, history: { role: string;
             await db.from('scheduled_tasks').update({ active: false }).ilike('label', `%${args.label}%`)
             toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `deleted: ${args.label}` })
           } catch {
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'not found' })
+          }
+        } else if (tc.function.name === 'save_task') {
+          const { data: newTask, error } = await db.from('tasks').insert({
+            text: args.text, focus: args.focus || 'other',
+            urgent: !!args.urgent, important: !!args.important,
+            due_date: args.due_date || null,
+          }).select().single()
+          if (error) throw new Error(error.message)
+          toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `saved task id=${newTask?.id}` })
+        } else if (tc.function.name === 'get_tasks') {
+          const focus = args.focus && args.focus !== 'all' ? args.focus : null
+          let q = db.from('tasks').select('text, focus, urgent, important, due_date').eq('done', false)
+          if (focus) q = (q as any).eq('focus', focus)
+          const { data: taskData } = await (q as any).order('created_at', { ascending: false })
+          const tasks = (taskData || []) as any[]
+          if (tasks.length === 0) {
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'Задач нет' })
+          } else {
+            const lines = tasks.map((t: any) => {
+              const p = [t.urgent && '🔴', t.important && '⭐'].filter(Boolean).join('')
+              const due = t.due_date ? ` (до ${new Date(t.due_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })})` : ''
+              return `${p || '•'} ${t.text}${due} [${t.focus}]`
+            })
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: lines.join('\n') })
+          }
+        } else if (tc.function.name === 'done_task') {
+          const { data: found } = await db.from('tasks').select('id, text')
+            .eq('done', false).ilike('text', `%${args.text_fragment}%`).limit(1)
+          if (found?.[0]) {
+            await db.from('tasks').update({ done: true }).eq('id', found[0].id)
+            toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `done: «${found[0].text}»` })
+          } else {
             toolResults.push({ role: 'tool', tool_call_id: tc.id, content: 'not found' })
           }
         } else if (tc.function.name === 'delete_activity') {
@@ -934,6 +1026,45 @@ async function handleUpdate(update: any) {
         chat_id: chatId,
         text: '⏰ Что делаешь?',
         reply_markup: focusKeyboard(open?.activity_id),
+      })
+      return
+    }
+
+    if (text === '📋 задачи') {
+      const { data: taskData } = await db.from('tasks')
+        .select('text, focus, urgent, important, due_date')
+        .eq('done', false)
+        .order('urgent', { ascending: false })
+        .order('important', { ascending: false })
+        .order('created_at', { ascending: false })
+      const tasks = (taskData || []) as any[]
+      if (tasks.length === 0) {
+        await tg('sendMessage', {
+          chat_id: chatId,
+          text: '📋 Задач пока нет\n\nСкажи мне «запиши задачу: ...» — сохраню',
+        })
+        return
+      }
+      const formatTask = (t: any) => {
+        const p = [t.urgent && '🔴', t.important && '⭐'].filter(Boolean).join('')
+        const due = t.due_date
+          ? ` · до ${new Date(t.due_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}`
+          : ''
+        return `${p || '•'} ${t.text}${due}`
+      }
+      const q1 = tasks.filter((t: any) => t.urgent && t.important)
+      const q2 = tasks.filter((t: any) => !t.urgent && t.important)
+      const q3 = tasks.filter((t: any) => t.urgent && !t.important)
+      const q4 = tasks.filter((t: any) => !t.urgent && !t.important)
+      const sections: string[] = []
+      if (q1.length) sections.push(`🔴⭐ Срочно и важно:\n${q1.map(formatTask).join('\n')}`)
+      if (q2.length) sections.push(`⭐ Важно, не срочно:\n${q2.map(formatTask).join('\n')}`)
+      if (q3.length) sections.push(`🔴 Срочно, не важно:\n${q3.map(formatTask).join('\n')}`)
+      if (q4.length) sections.push(`📝 Остальное:\n${q4.map(formatTask).join('\n')}`)
+      await tg('sendMessage', {
+        chat_id: chatId,
+        text: `📋 Задачи (${tasks.length}):\n\n${sections.join('\n\n')}`,
+        reply_markup: { inline_keyboard: [[{ text: '📱 управлять в приложении', url: 'https://t.me/remote_tracker_dp_bot/tracker' }]] },
       })
       return
     }
