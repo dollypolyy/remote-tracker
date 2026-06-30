@@ -213,7 +213,7 @@ export interface Task {
 
 export async function getTasks(includeDone = false): Promise<Task[]> {
   let q = supabase.from('tasks').select('*')
-  if (!includeDone) q = (q as any).eq('done', false)
+  if (!includeDone) q = (q as any).neq('done', true)  // включает NULL
   const { data, error } = await (q as any).order('created_at', { ascending: false })
   if (error) throw error
   return (data || []) as Task[]

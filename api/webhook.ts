@@ -883,7 +883,7 @@ async function aiReply(userText: string, today: string, history: { role: string;
           toolResults.push({ role: 'tool', tool_call_id: tc.id, content: `saved${res.data?.id ? ` id=${res.data.id}` : ''}${due_date ? ` due=${due_date}` : ''}` })
         } else if (tc.function.name === 'get_tasks') {
           const focus = args.focus && args.focus !== 'all' ? args.focus : null
-          let q = db.from('tasks').select('text, focus, urgent, important, due_date').eq('done', false)
+          let q = db.from('tasks').select('text, focus, urgent, important, due_date').neq('done', true)
           if (focus) q = (q as any).eq('focus', focus)
           const { data: taskData } = await (q as any).order('created_at', { ascending: false })
           const tasks = (taskData || []) as any[]
