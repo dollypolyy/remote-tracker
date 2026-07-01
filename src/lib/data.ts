@@ -245,7 +245,7 @@ export async function deleteTask(id: string): Promise<void> {
 
 export interface DayWeek {
   date: string
-  focusH: number   // biz + blog
+  focusH: number   // biz + blog + sport
   sportH: number
   bizH: number
   blogH: number
@@ -287,7 +287,7 @@ export async function getWeekStats(): Promise<WeekStats> {
     const d = byDate.get(b.date)!
     if (b.focus === 'biz')        { d.bizH += h;  d.focusH += h }
     else if (b.focus === 'blog')  { d.blogH += h; d.focusH += h }
-    else if (b.focus === 'sport') { d.sportH += h }
+    else if (b.focus === 'sport') { d.sportH += h; d.focusH += h }
     else                          { d.otherH += h }
   }
 
